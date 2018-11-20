@@ -1,0 +1,13 @@
+Dungeon-Game:
+Höhlen mit Loot und/oder Monstern und/oder NPCs
+Quadratische Karte, falls einfacher
+Fallen:
+  - Deathtraps
+  - Teleporter
+  - Bossfights
+  - Damagetraps
+Bewegende Monster?
+Fallen und/oder Höhleninhalt zufällig generiert
+Verschiedene Angriffe
+  - verschieden effektiv bei unterschiedlichen Monstern?
+
