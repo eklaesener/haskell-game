@@ -1,2 +1,2 @@
 # ad-miniprojekt
-Mein Miniprojekt für Algorithmen&amp;Datenstrukturen
+Mein Miniprojekt für Algorithmen und Datenstrukturen
