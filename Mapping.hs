@@ -1,11 +1,13 @@
 import Data.Array
 module Mapping where
 
+
+-- naming some values so, if necessary, changing them afterwards is easier
 roomSize = 7
 leftDoorCoord = 3
 rightDoorCoord = 4
 
-isDoor x = (x >= leftDoorCoord) && (x <= rightDoorCoord)
+isDoor x = (x >= leftDoorCoord) && (x <= rightDoorCoord) -- a simple check if you're standing in front of a door
 
 data Direction = North | West | South | East
    deriving (Show, Read, Eq, Ord, Enum)
@@ -32,6 +34,7 @@ gameMap = array ((0,0), (2,3)) [
    ((2,2), "bridge over river"),
    ((2,3), "deserted island") ]
 
+-- this is way better than constantly having to type those functions
 lowBoundNS = fst $ fst $ bounds gameMap
 lowBoundWE = snd $ fst $ bounds gameMap
 highBoundNS = (fst . snd . bounds) gameMap
@@ -90,10 +93,3 @@ move ((ns, we), (x, y), South) Backoff = Right ((ns, we), (x - 1, y), South)
 move ((_, lowBoundWE), (x, 0), East) Backoff = if (isDoor x) then Left "Door blocked" else Left "Wall"
 move ((ns, we), (x, 0), East) Backoff = if (isDoor x) then Right ((ns, we - 1), (x, roomSize), East) else Left "Wall"
 move ((ns, we), (x, y), East) Backoff = Right ((ns, we), (x, y - 1), East)
-
-
-
-
-
-
---   ( ((fst $ snd $ bounds gameMap) <= (ns - 1)) && ((fst . fst . bounds) gameMap) >= (d - 1) ) then Right (
