@@ -1,11 +1,12 @@
 import Data.Array
-module Mapping where
+module Movement where
 
 
 -- naming some values so, if necessary, changing them afterwards is easier
 roomSize = 7
 leftDoorCoord = 3
 rightDoorCoord = 4
+numRooms = 12
 
 isDoor x = (x >= leftDoorCoord) && (x <= rightDoorCoord) -- a simple check if you're standing in front of a door
 
@@ -19,20 +20,22 @@ data Movement = Advance | TurnLeft | BackOff | TurnRight
 
 type Location = (Int, Int) -- which room you're in, numbers are the same as the index of the specific room
 
+-- choosing which rooms are locked - True means locked, False means unlocked
 
 gameMap = array ((0,0), (2,3)) [
-   ((0,0), "mountains"),
-   ((0,1), "home sweet home"),
-   ((0,2), "dark forest"),
-   ((0,3), "sandy beach"),
-   ((1,0), "mountains lake"),
-   ((1,1), "green clearing"),
-   ((1,2), "cave entrance"),
-   ((1,3), "dark cave"),
-   ((2,0), "vibrant village"),
-   ((2,1), "deadly desert"),
-   ((2,2), "bridge over river"),
-   ((2,3), "deserted island") ]
+   ((0,0), True)
+   ,((0,1), False)
+   ,((0,2), False)
+   ,((0,3), False)
+   ,((1,0), False)
+   ,((1,1), True)
+   ,((1,2), False)
+   ,((1,3), False)
+   ,((2,0), True)
+   ,((2,1), False)
+   ,((2,2), True)
+   ,((2,3), True)
+   ]
 
 -- this is way better than constantly having to type those functions
 lowBoundNS = fst $ fst $ bounds gameMap
