@@ -13,10 +13,10 @@ data Character = Character { id :: Integer
 instance Eq Character where
    (Character idA _ _ _ _) == (Character idB _ _ _ _) = idA == idB
 
-setHealth :: (Floating a) => Character -> a -> Character
+setHealth :: Character -> Float -> Character
 setHealth (Character id name _ pc items) x = (Character id name x pc items)
 
-changeHealth :: (Floating a) => Character -> a -> Character
+changeHealth :: Character -> Float -> Character
 changeHealth (Character id name oldhp pc items) x = (Character id name (oldhp + x) pc items)
 
 

@@ -28,8 +28,12 @@ data Movement = Advance | TurnLeft | BackOff | TurnRight
 
 type Location = (Int, Int) -- which room you're in, numbers are the same as the index of the specific room
 
+type Map = Array (Int, Int) Bool
+
+
 -- choosing which rooms are locked - True means locked, False means unlocked
 
+oldGameMap :: Map
 oldGameMap = array ((0,0), (2,3)) [
    ((0,0), True)
    ,((0,1), False)
