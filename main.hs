@@ -12,10 +12,11 @@ createMap = do gen <- newStdGen
                return (listArray ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) randomBools)
 
 
-createCharacter :: [Integer] -> IO (Cha.Character, [Integer] -- creates an empty character with a unique id - that's why we have to pass that list around!
+createCharacter :: [Integer] -> IO (Cha.Character, [Integer]) -- creates an empty character with a unique id - that's why we have to pass that list around!
 createCharacter list = do gen <- newStdGen
-                     let id = head [x | x <- (randoms gen :: [Integer]), y <- list, x /= y]
-                     return ((Cha.Character id "" 100 False []), (id:list))
+                          let randomIDs = randoms gen :: [Integer]
+                          let id = head $ filter (\x -> not (x `elem` list)) randomIDs
+                          return ((Cha.Character id "" 100 False []), (id:list))
 
 
 createPlayer :: [Integer] -> IO (Cha.Character, [Integer]) -- creates a new player character
