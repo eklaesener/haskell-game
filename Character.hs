@@ -13,14 +13,14 @@ data Character = Character { id :: Integer
 instance Eq Character where
    (Character idA _ _ _ _) == (Character idB _ _ _ _) = idA == idB
 
-setHealth :: Character -> Float -> Character
-setHealth (Character id name _ pc items) x = (Character id name x pc items)
+setHealth :: Float -> Character -> Character
+setHealth x (Character id name _ pc items) = (Character id name x pc items)
 
-changeHealth :: Character -> Float -> Character
-changeHealth (Character id name oldhp pc items) x = (Character id name (oldhp + x) pc items)
+changeHealth :: Float -> Character -> Character
+changeHealth x (Character id name oldhp pc items) = (Character id name (oldhp + x) pc items)
 
-changeName :: Character -> String -> Character
-changeName (Character id _ hp pc items) name = (Character id name hp pc items)
+changeName :: String -> Character -> Character
+changeName name (Character id _ hp pc items) = (Character id name hp pc items)
 
-setPlayerCharacter :: Character -> Bool -> Character
-setPlayerCharacter (Character id name hp _ items) pc = (Character id name hp pc items)
+setPlayerCharacter :: Bool ->Character -> Character
+setPlayerCharacter pc (Character id name hp _ items) = (Character id name hp pc items)
