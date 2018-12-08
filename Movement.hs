@@ -1,16 +1,19 @@
-import Data.Array
 module Movement where
+
+import Data.Array
+
+
 
 
 -- naming some values so, if necessary, changing them afterwards is easier
 roomSize = 7
-leftDoorCoord = 3
-rightDoorCoord = 4
-numRooms = 12
+leftDoorCoord = (roomSize `div` 2)
+rightDoorCoord = (roomSize `div` 2) + 1
+numRooms = ( highBoundNS - lowBoundNS + 1 ) * ( highBoundWE - lowBoundWE + 1)
 
 lowBoundNS = 0
 lowBoundWE = 0
-highBoundWE = 2
+highBoundNS = 2
 highBoundWE = 3
 
 isDoor x = (x >= leftDoorCoord) && (x <= rightDoorCoord) -- a simple check if you're standing in front of a door
@@ -27,7 +30,7 @@ type Location = (Int, Int) -- which room you're in, numbers are the same as the 
 
 -- choosing which rooms are locked - True means locked, False means unlocked
 
-gameMap = array ((0,0), (2,3)) [
+oldGameMap = array ((0,0), (2,3)) [
    ((0,0), True)
    ,((0,1), False)
    ,((0,2), False)
@@ -68,36 +71,47 @@ move (l, il, d) TurnLeft = Right (l, il, toEnum (fromEnum d - 1))
 
 
 
-move ((lowBoundNS, _), (0, y), North) Advance = if (isDoor y) then Left "Door blocked" else Left "Wall"
-move ((ns, we), (0, y), North) Advance = if (isDoor y) then Right ((ns - 1, we), (roomSize, y), North) else Left "Wall"
-move ((ns, we), (x, y), North) Advance = Right ((ns, we), (x - 1, y), North)
+move ((ns, we), (x, y), North) Advance
+   | (x == 0) && (ns == lowBoundNS) = if (isDoor y) then Left "Door blocked" else Left "Wall"
+   | x == 0 = if (isDoor y) then Right ((ns - 1, we), (roomSize, y), North) else Left "Wall"
+   | otherwise = Right ((ns, we), (x - 1, y), North)
 
-move ((_, lowBoundWE), (x, 0), West) Advance = if (isDoor x) then Left "Door blocked" else Left "Wall"
-move ((ns, we), (x, 0), West) Advance = if (isDoor x) then Right ((ns, we - 1), (x, roomSize), West) else Left "Wall"
-move ((ns, we), (x, y), West) Advance = Right ((ns, we), (x, y - 1), West)
+move ((ns, we), (x, y), West) Advance
+   | (y == 0) && (we == lowBoundWE) = if (isDoor x) then Left "Door blocked" else Left "Wall"
+   | y == 0 = if (isDoor x) then Right ((ns, we - 1), (x, roomSize), West) else Left "Wall"
+   | otherwise = Right ((ns, we), (x, y - 1), West)
 
-move ((highBoundNS, _), (roomSize, y), South) Advance = if (isDoor y) then Left "Door blocked" else Left "Wall"
-move ((ns, we), (roomSize, y), South) Advance = if (isDoor y) then Right ((ns + 1, we), (0, y), South) else Left "Wall"
-move ((ns, we), (x, y), South) Advance = Right ((ns, we), (x + 1, y), South)
+move ((ns, we), (x, y), South) Advance
+   | (x == roomSize) && (ns == highBoundNS) = if (isDoor y) then Left "Door blocked" else Left "Wall"
+   | x == roomSize = if (isDoor y) then Right ((ns + 1, we), (0, y), South) else Left "Wall"
+   | otherwise = Right ((ns, we), (x + 1, y), South)
 
-move ((_, highBoundWE), (x, roomSize), East) Advance = if (isDoor x) then Left "Door blocked" else Left "Wall"
-move ((ns, we), (x, roomSize), East) Advance = if (isDoor x) then Right ((ns, we + 1), (x, 0), East) else Left "Wall"
-move ((ns, we), (x, y), East) Advance = Right ((ns, we), (x, y + 1), East)
+move ((ns, we), (x, y), East) Advance
+   | (y == roomSize) && (we == highBoundWE) = if (isDoor x) then Left "Door blocked" else Left "Wall"
+   | y == roomSize = if (isDoor x) then Right ((ns, we + 1), (x, 0), East) else Left "Wall"
+   | otherwise = Right ((ns, we), (x, y + 1), East)
+
+
+move ((ns, we), (x, y), North) BackOff
+   | (x == roomSize) && (ns == highBoundNS) = if (isDoor y) then Left "Door blocked" else Left "Wall"
+   | x == roomSize = if (isDoor y) then Right ((ns + 1, we), (0, y), North) else Left "Wall"
+   | otherwise = Right ((ns, we), (x + 1, y), North)
+
+move ((ns, we), (x, y), West) BackOff
+   | (y == roomSize) && (we == highBoundWE) = if (isDoor x) then Left "Door blocked" else Left "Wall"
+   | y == roomSize = if (isDoor x) then Right ((ns, we + 1), (x, 0), West) else Left "Wall"
+   | otherwise = Right ((ns, we), (x, y + 1), West)
+
+move ((ns, we), (x, y), South) BackOff
+   | (x == 0) && (ns == lowBoundNS) = if (isDoor y) then Left "Door blocked" else Left "Wall"
+   | x == 0 = if (isDoor y) then Right ((ns - 1, we), (roomSize, y), South) else Left "Wall"
+   | otherwise = Right ((ns, we), (x - 1, y), South)
+
+move ((ns, we), (x, y), East) BackOff
+   | (y == 0) && (we == lowBoundWE) = if (isDoor x) then Left "Door blocked" else Left "Wall"
+   | y == 0 = if (isDoor x) then Right ((ns, we - 1), (x, roomSize), East) else Left "Wall"
+   | otherwise = Right ((ns, we), (x, y - 1), East)
 
 
 
-move ((highBoundNS, _), (roomSize, y), North) Backoff = if (isDoor y) then Left "Door blocked" else Left "Wall"
-move ((ns, we), (roomSize, y), North) Backoff = if (isDoor y) then Right ((ns + 1, we), (0, y), North) else Left "Wall"
-move ((ns, we), (x, y), North) Backoff = Right ((ns, we), (x + 1, y), North)
 
-move ((_, highBoundWE), (x, roomSize), West) Backoff = if (isDoor x) then Left "Door blocked" else Left "Wall"
-move ((ns, we), (x, roomSize), West) Backoff = if (isDoor x) then Right ((ns, we + 1), (x, 0), West) else Left "Wall"
-move ((ns, we), (x, y), West) Backoff = Right ((ns, we), (x, y + 1), West)
-
-move ((lowBoundNS, _), (0, y), South) Backoff = if (isDoor y) then Left "Door blocked" else Left "Wall"
-move ((ns, we), (0, y), South) Backoff = if (isDoor y) then Right ((ns - 1, we), (roomSize, y), South) else Left "Wall"
-move ((ns, we), (x, y), South) Backoff = Right ((ns, we), (x - 1, y), South)
-
-move ((_, lowBoundWE), (x, 0), East) Backoff = if (isDoor x) then Left "Door blocked" else Left "Wall"
-move ((ns, we), (x, 0), East) Backoff = if (isDoor x) then Right ((ns, we - 1), (x, roomSize), East) else Left "Wall"
-move ((ns, we), (x, y), East) Backoff = Right ((ns, we), (x, y - 1), East)
