@@ -7,6 +7,11 @@ roomSize = 7
 leftDoorCoord = 3
 rightDoorCoord = 4
 
+lowBoundNS = 0
+lowBoundWE = 0
+highBoundWE = 2
+highBoundWE = 3
+
 isDoor x = (x >= leftDoorCoord) && (x <= rightDoorCoord) -- a simple check if you're standing in front of a door
 
 data Direction = North | West | South | East
@@ -35,10 +40,10 @@ gameMap = array ((0,0), (2,3)) [
    ((2,3), "deserted island") ]
 
 -- this is way better than constantly having to type those functions
-lowBoundNS = fst $ fst $ bounds gameMap
-lowBoundWE = snd $ fst $ bounds gameMap
-highBoundNS = (fst . snd . bounds) gameMap
-highBoundWE = (snd . snd . bounds) gameMap
+oldLowBoundNS = fst $ fst $ bounds oldGameMap
+oldLowBoundWE = snd $ fst $ bounds oldGameMap
+oldHighBoundNS = (fst . snd . bounds) oldGameMap
+oldHighBoundWE = (snd . snd . bounds) oldGameMap
 
 
 type InnerLocation = (Int, Int) -- all rooms are the same size, so a simple coordinate pair from 0 to roomSize will suffice
