@@ -21,3 +21,6 @@ changeHealth (Character id name oldhp pc items) x = (Character id name (oldhp + 
 
 changeName :: Character -> String -> Character
 changeName (Character id _ hp pc items) name = (Character id name hp pc items)
+
+setPlayerCharacter :: Character -> Bool -> Character
+setPlayerCharacter (Character id name hp _ items) pc = (Character id name hp pc items)
