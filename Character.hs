@@ -19,4 +19,5 @@ setHealth (Character id name _ pc items) x = (Character id name x pc items)
 changeHealth :: Character -> Float -> Character
 changeHealth (Character id name oldhp pc items) x = (Character id name (oldhp + x) pc items)
 
-
+changeName :: Character -> String -> Character
+changeName (Character id _ hp pc items) name = (Character id name hp pc items)
