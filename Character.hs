@@ -1,6 +1,6 @@
 module Character where
 
-type Item = (Int, Int, String, Int, [Int]) -- reads as (internal reference, unique id, name, price, [possibly other attributes like power])
+type Item = (Int, Integer, String, Int, [Int]) -- reads as (internal reference, unique id, name, price, [possibly other attributes like power])
 
 data Character = Character { id :: Integer
                            , name :: String
