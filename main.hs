@@ -65,8 +65,15 @@ createPlayer roomMap charMap = do (id, tempMap) <- createCharacter charMap
                                   let newMap = Map.insert id (player,newPos) tempMap
                                   return (id, newMap)
 
+getCharacter :: Int -> CharMap -> Maybe Cha.Character
+getCharacter id map = case expr of Nothing -> Nothing
+                                   Just (pl, _) -> Just pl
+   where expr = Map.lookup id map
 
-
+getPosition :: Int -> CharMap -> Maybe Mov.Position
+getPosition id map = case expr of Nothing -> Nothing
+                                  Just (_, pos) -> Just pos
+   where expr = Map.lookup id map
 
 type Characters = [Int]
 type CharMap = Map.Map Int (Cha.Character, Mov.Position)
@@ -85,5 +92,9 @@ main = do roomMap <- createMap
           (charID, charMap2) <- createCharacter charMap1
 --          result <- play charIDList [player] map
           print roomMap
-          print charMap2
+          let (Just player) = getCharacter playerID charMap2
+          let pos1 = getPosition 0 charMap2
+          print player
+          let (Just pos) = getPosition playerID charMap2 in print pos
+          if (pos1 == Nothing) then print (Nothing :: Maybe Mov.Position) else let (Just realpos) = pos1 in print realpos
 --          putStrLn result
