@@ -5,7 +5,7 @@ data Attributes = Nothing | Weapon { power :: Float
                                    , needsAmmo :: Bool
                                    }
                           | Shield { durability :: Float }
-                          | Key { room :: (Int, Int) }
+                          | Key { room :: (Int, Int) } deriving Show
 type Item = (Int, String, Attributes) -- reads as (internal reference, name, [possibly other attributes like power])
 
 data Character = Character { name :: String
