@@ -17,8 +17,8 @@ instance (Random x, Random y) => Random (x, y) where
 
 -- making Directions an instance of Random
 instance Random Mov.Direction where
-   randomR (low, high) gen = (toEnum (fst (randomR (fromEnum low, fromEnum high) gen)), snd (randomR (fromEnum low, fromEnum high) gen))
-   random gen = randomR (Mov.West, Mov.East) gen
+   randomR (low, high) gen = (toEnum . fst $ randomR (fromEnum low, fromEnum high) gen, snd $ randomR (fromEnum low, fromEnum high) gen)
+   random = randomR (Mov.West, Mov.East)
 
 
 
@@ -85,9 +85,5 @@ main = do roomMap <- createMap
           (charID, charMap2) <- createCharacter charMap1
 --          result <- play charIDList [player] map
           print roomMap
-          print playerID
-          print charID
           print charMap2
-          print (minBound :: Int)
-          print (maxBound :: Int)
 --          putStrLn result
