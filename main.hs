@@ -1,6 +1,7 @@
 import Data.Array
 import System.IO
 import System.Random
+import qualified Data.Map as Map
 import qualified Movement as Mov
 import qualified Character as Cha
 
@@ -12,31 +13,42 @@ createMap = do gen <- newStdGen
                return (listArray ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) randomBools)
 
 
-createCharacter :: [Integer] -> IO (Cha.Character, [Integer]) -- creates an empty character with a unique id - that's why we have to pass that list around!
-createCharacter list = do gen <- newStdGen
+createCharacter :: Map.Map -> IO (Integer, Map.Map) -- creates an empty character with a unique id - that's why we have to pass that map around!
+createCharacter map = do gen <- newStdGen
                           let randomIDs = randoms gen :: [Integer]
-                          let id = head $ filter (\x -> not (x `elem` list)) randomIDs
-                          return ((Cha.Character id "" 100 False []), (id:list))
+                          let id = head $ filter (\x -> not (Map.member x map)) randomIDs
+                          let player = Cha.Character "" 100 False []
+                          let map = Map.insert id player map
+                          return (id, map)
 
 
-createPlayer :: [Integer] -> IO (Cha.Character, [Integer]) -- creates a new player character
-createPlayer list = do (char, newList) <- createCharacter list
+createPlayer :: Map.Map -> IO (Integer, Map.Map) -- creates a new player character
+createPlayer map = do (id, newMap) <- createCharacter map
                        print "How would you like to be called?"
                        name <- getLine
                        print ("Very well, " ++ name ++ " it is then.")
+                       let (Just char) = Map.lookup id newMap
                        let player = Cha.setPlayerCharacter True . Cha.changeName name $ char
-                       return (player, newList)
+                       let map = Map.insert id player newMap
+                       return (id, map)
 
 
--- play :: [Integer] -> [Cha.Character] -> Mov.Map -> ???
+
+
+
+
+type Game = ([, Mov.Map, [Cha.Item], Map.Map)
+
+
+-- play :: Game -> ???
 
 
 main = do map <- createMap
-          (player, charIDList) <- createPlayer []
-          (char, charIDList) <- createCharacter charIDList
+          (playerID, charMap) <- createPlayer Map.empty
+          (charID, charMap) <- createCharacter charMap
 --          result <- play charIDList [player] map
           print map
-          print player
-          print char
-          print charIDList
+          print playerID
+          print charID
+          print charMap
 --          putStrLn result
