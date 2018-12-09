@@ -1,6 +1,12 @@
 module Character where
 
-type Item = (Int, String, Int, [Int]) -- reads as (internal reference, name, price, [possibly other attributes like power])
+data Attributes = Nothing | Weapon { power :: Float
+                                   , range :: Int
+                                   , needsAmmo :: Bool
+                                   }
+                          | Shield { durability :: Float }
+                          | Key { room :: (Int, Int) }
+type Item = (Int, String, Attributes) -- reads as (internal reference, name, [possibly other attributes like power])
 
 data Character = Character { name :: String
                            , hp :: Float
