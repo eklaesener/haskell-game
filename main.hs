@@ -61,16 +61,16 @@ createPlayer roomMap charMap = do (id, tempMap) <- createCharacter charMap
                                   gen3 <- newStdGen
                                   let dir = head $ randomRs (Mov.West, Mov.East) gen3
                                   let newPos = (newLoc, innerLoc, dir)
---                                  let newPos = head . filter () . take Mov.numRooms $ randomRs ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) gen :: [(Int,Int)]
                                   let newMap = Map.insert id (player,newPos) tempMap
                                   return (id, newMap)
 
-getCharacter :: Int -> CharMap -> Maybe Cha.Character
+
+getCharacter :: Int -> CharMap -> Maybe Cha.Character -- just an alias for Map.lookup, but discards the position
 getCharacter id map = case expr of Nothing -> Nothing
                                    Just (pl, _) -> Just pl
    where expr = Map.lookup id map
 
-getPosition :: Int -> CharMap -> Maybe Mov.Position
+getPosition :: Int -> CharMap -> Maybe Mov.Position -- just an alias for Map.lookup, but discards the character
 getPosition id map = case expr of Nothing -> Nothing
                                   Just (_, pos) -> Just pos
    where expr = Map.lookup id map
