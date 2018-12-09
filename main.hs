@@ -1,15 +1,21 @@
 import Data.Array
 import System.IO
 import System.Random
+import Control.Monad.Random
 import qualified Data.Map as Map
 import qualified Movement as Mov
 import qualified Character as Cha
 
 
+weightedList :: RandomGen g => g -> [(a, Rational)] -> [a]
+weightedList gen weightList = evalRand m gen
+   where m = sequence . repeat . fromList $ weightList
+
 
 createMap :: IO Mov.Map -- creates a new map with randomly locked rooms
 createMap = do gen <- newStdGen
-               let randomBools = take Mov.numRooms (randoms gen :: [Bool])
+               let weightList = [(True, 2), (False, 6)]
+               let randomBools = take Mov.numRooms (weightedList gen weightList)
                return (listArray ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) randomBools)
 
 

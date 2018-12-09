@@ -7,8 +7,8 @@ import Data.Array
 
 -- naming some values so, if necessary, changing them afterwards is easier
 roomSize = 7
-leftDoorCoord = (roomSize `div` 2)
-rightDoorCoord = (roomSize `div` 2) + 1
+leftDoorCoord = toInteger (floor (fromIntegral roomSize / 2))
+rightDoorCoord = toInteger (ceiling (fromIntegral roomSize / 2))
 numRooms = ( highBoundNS - lowBoundNS + 1 ) * ( highBoundWE - lowBoundWE + 1)
 
 lowBoundNS = 0
@@ -56,7 +56,7 @@ oldHighBoundNS = (fst . snd . bounds) oldGameMap
 oldHighBoundWE = (snd . snd . bounds) oldGameMap
 
 
-type InnerLocation = (Int, Int) -- all rooms are the same size, so a simple coordinate pair from 0 to roomSize will suffice
+type InnerLocation = (Integer, Integer) -- all rooms are the same size, so a simple coordinate pair from 0 to roomSize will suffice
 
 type Position = (Location, InnerLocation, Direction) -- your position consists of the room you're in, your position in that room and the direction you're facing currently
 
