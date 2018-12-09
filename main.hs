@@ -13,31 +13,35 @@ createMap = do gen <- newStdGen
                return (listArray ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) randomBools)
 
 
-createCharacter :: Map.Map -> IO (Integer, Map.Map) -- creates an empty character with a unique id - that's why we have to pass that map around!
+createCharacter :: Map.Map Integer Cha.Character -> IO (Integer, Map.Map Integer Cha.Character) -- creates an empty character with a unique id - that's why we have to pass that map around!
 createCharacter map = do gen <- newStdGen
-                          let randomIDs = randoms gen :: [Integer]
-                          let id = head $ filter (\x -> not (Map.member x map)) randomIDs
-                          let player = Cha.Character "" 100 False []
-                          let map = Map.insert id player map
-                          return (id, map)
+                         let randomIDs = randoms gen :: [Integer]
+                         let id = head $ filter (\x -> not (Map.member x map)) randomIDs
+                         let player = Cha.Character "" 100 False []
+                         let map = Map.insert id player map
+                         return (id, map)
 
 
-createPlayer :: Map.Map -> IO (Integer, Map.Map) -- creates a new player character
+createPlayer :: Map.Map Integer Cha.Character -> IO (Integer, Map.Map Integer Cha.Character) -- creates a new player character
 createPlayer map = do (id, newMap) <- createCharacter map
-                       print "How would you like to be called?"
-                       name <- getLine
-                       print ("Very well, " ++ name ++ " it is then.")
-                       let (Just char) = Map.lookup id newMap
-                       let player = Cha.setPlayerCharacter True . Cha.changeName name $ char
-                       let map = Map.insert id player newMap
-                       return (id, map)
+                      print "How would you like to be called?"
+                      name <- getLine
+                      print ("Very well, " ++ name ++ " it is then.")
+                      let (Just char) = Map.lookup id newMap
+                      let player = Cha.setPlayerCharacter True . Cha.changeName name $ char
+                      let map = Map.insert id player newMap
+                      return (id, map)
 
 
 
 
+type Characters = [Integer]
+type CharMap = Map.Map Integer Cha.Character
 
+type Items = [Integer]
+type ItemMap = Map.Map Integer Cha.Item
 
-type Game = ([, Mov.Map, [Cha.Item], Map.Map)
+type Game = (Mov.Map, Characters, CharMap, Items, ItemMap)
 
 
 -- play :: Game -> ???
