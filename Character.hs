@@ -5,13 +5,13 @@ data Attributes = Nil | Weapon { power :: Float
                                    , needsAmmo :: Bool
                                    }
                           | Shield { durability :: Float }
+                          | Ladder
                           | Key { room :: (Int, Int) } deriving Show
 
 type Item = (Int, String, Attributes) -- reads as (internal reference, name, [possibly other attributes like power])
 
 itemList :: [Item]
-itemList = [(0, "Test", Nil)
-           ,(1, "Key for Room (0,0)", Key (0,0))
+itemList = [(1, "Key for Room (0,0)", Key (0,0))
            ,(2, "Key for Room (0,1)", Key (0,1))
            ,(3, "Key for Room (0,2)", Key (0,2))
            ,(4, "Key for Room (0,3)", Key (0,3))
@@ -23,6 +23,7 @@ itemList = [(0, "Test", Nil)
            ,(10, "Key for Room (2,1)", Key (2,1))
            ,(11, "Key for Room (2,2)", Key (2,2))
            ,(12, "Key for Room (2,3)", Key (2,3))
+           ,(13, "Escape Ladder", Ladder)
            ]
 
 itemCount :: Int

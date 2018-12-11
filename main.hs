@@ -71,6 +71,15 @@ createItem checkForLocked roomMap itemMap
    let newMap = Map.insert id (item, pos) itemMap
    return (id, newMap)
 
+{-createItems :: Int -> Bool -> Mov.Map -> ItemMap -> IO ([Int], ItemMap)
+createItems count checkForLocked roomMap itemMap
+   | count == 1 = do
+      (id, newMap) <- createItem
+      return ([id], newMap)
+   | otherwise = do
+      let list = take count . sequence . repeat $ createItem checkForLocked roomMap itemMap -}
+
+
 randomPosition :: Bool -> Mov.Map -> IO Mov.Position
 randomPosition checkForLocked roomMap
    | checkForLocked = do
@@ -105,30 +114,86 @@ getPosition id map = case expr of Nothing -> Nothing
                                   Just (_, pos) -> Just pos
    where expr = Map.lookup id map
 
-type Characters = [Int]
+
+
+
+
+
+
+type Player = Int
 type CharMap = Map.Map Int (Cha.Character, Mov.Position)
 
-type Items = [Int]
+type Ladder = Int
 type ItemMap = Map.Map Int (Cha.Item, Mov.Position)
 
-type Game = (Mov.Map, Characters, CharMap, Items, ItemMap)
+type Game = (Mov.Map, Player, CharMap, Ladder, ItemMap)
 
 
-initialize :: Game
+
+
+
+
+
+
+
+
+initialize :: IO Game
 initialize = do
    roomMap <- createMap
    (playerID, charMap1) <- createPlayer roomMap Map.empty
    let gen <- newStdGen
    let numItems = head $ randomRs (0,Mov.numRooms) gen
-   items <- createItems roomMap Map.empty
-   
-   
+   (itemID1, itemMap1) <- createItem False roomMap Map.empty
+   (itemID2, itemMap2) <- createItem False roomMap itemMap1
+   (ladderID, itemMap3) <- createItem True roomMap itemMap2
+   let (Just (_, ladderPos)) = Map.lookup ladderID itemMap3
+   let itemMap4 = Map.insert ladderID (last Cha.itemList, ladderPos)
+   return (roomMap, playerID, charMap1, ladderID, itemMap4)
 
+
+gameState :: Game -> IO String
+gameState game = do
+   resultUnformatted <- play game
+   let result = case resultUnformatted of
+      (Left str) -> return str
+      (Right game2) -> gameState game2
 
 
 -- Here, we finally get to play the game!
-play :: Game -> Either String Game
-play
+play :: Game -> IO (Either String Game)
+play game = do
+   print "What do you want to do next?"
+   input <- getLine
+   result <- action input game
+   return result
+
+
+action :: String -> Game -> IO (Either String Game)
+action str @game(roomMap, playerID, charMap, ladderID, itemMap)
+   | str == "go forward" = do
+      let (Just player, pos) = Map.lookup playerID charMap
+      let (Just _, @ladderPos(ladderRoom, ladderInner, ladderDir)) = Map.lookup ladderID itemMap
+      let resultUnformatted = Mov.move pos Advance
+      case resultUnformatted of
+         (Left str) -> do
+            case str of
+               "Wall" -> do
+                  print getWallMsg
+               "Door blocked" -> do
+                  print getDoorBlockedMsg
+            return $ Right game
+         (Right @newPos(room, inner, dir)) -> do
+            if roomMap ! room then do
+               print getRoomLockedMsg
+               return $ Right game
+            else if (ladderRoom == room) && (ladderInner == inner) then do
+                  
+               let newCharMap = Map.insert playerID (player, newPos) charMap
+               return $ Right 
+
+
+
+
 
 main = do 
    roomMap <- createMap
