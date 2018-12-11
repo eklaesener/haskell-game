@@ -38,37 +38,64 @@ createMap = do
    return (listArray ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) randomBools)
 
 
-createCharacter :: CharMap -> IO (Int, CharMap) -- creates an empty character with a unique id - that's why we have to pass that map around!
-createCharacter map = do
+createCharacter :: Bool -> Mov.Map -> CharMap -> IO (Int, CharMap) -- creates an empty character with a unique id - that's why we have to pass that map around!
+createCharacter checkForLocked roomMap charMap = do
    gen <- newStdGen
-   let id = head $ filter (\x -> not (Map.member x map)) (randoms gen :: [Int])
-   let player = Cha.Character "" 100 False []
-   let pos = ((0,0), (0,0), Mov.West)
-   let newMap = Map.insert id (player,pos) map
+   let id = head $ filter (\x -> not (Map.member x charMap)) (randoms gen :: [Int])
+   let char = Cha.Character "" 100 False []
+   pos <- randomPosition checkForLocked roomMap
+   let newMap = Map.insert id (char,pos) charMap
    return (id, newMap)
 
 
 createPlayer :: Mov.Map -> CharMap -> IO (Int, CharMap) -- creates a new player character
 createPlayer roomMap charMap = do
-   (id, tempMap) <- createCharacter charMap
+   (id, tempMap) <- createCharacter True roomMap charMap
    print "How would you like to be called?"
    name <- getLine
    print ("Very well, " ++ name ++ " it is then.")
    let (Just (char, pos)) = Map.lookup id tempMap
    let player = Cha.setPlayerCharacter True . Cha.changeName name $ char
-   gen <- newStdGen
-   let allRooms = take Mov.numRooms $ randomRs ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) gen :: [(Int,Int)] -- get a randomized list of rooms
-   let newLoc = head $ filter (\x -> not (roomMap ! x)) allRooms -- get the first unlocked room in that list
-   gen2 <- newStdGen
-   let innerLoc = head $ randomRs ((0,0), (Mov.roomSize,Mov.roomSize)) gen2 -- get a random Mov.InnerLocation
-   gen3 <- newStdGen
-   let dir = head $ randomRs (Mov.West, Mov.East) gen3 -- get a random Direction
-   let newPos = (newLoc, innerLoc, dir)
-   let newMap = Map.insert id (player,newPos) tempMap
+   let newMap = Map.insert id (player,pos) tempMap
    return (id, newMap)
 
 
-createItem :: Mov.Map -> ItemMap -> IO (Int, ItemMap)
+createItems :: Int -> Bool ->  Mov.Map -> ItemMap -> IO ([Int], ItemMap)
+createItems count checkForLocked roomMap itemMap
+   | count == 1 = do
+      gen <- newStdGen
+      let id = head $ filter (\x -> not (Map.member x itemMap)) (randoms gen :: [Int])
+      gen2 <- newStdGen
+      let itemID = head (randomRs (0,Cha.itemCount) gen :: [Int])
+      let item = Cha.itemList !! itemID
+      pos <- randomPosition checkForLocked roomMap
+      let newMap = Map.insert id (item, pos) itemMap
+      return ([id], newMap)
+   | otherwise = do
+      gen <- newStdGen
+      let id = 
+
+randomPosition :: Bool -> Mov.Map -> IO Mov.Position
+randomPosition checkForLocked roomMap
+   | checkForLocked = do
+      gen <- newStdGen
+      let loc = head $ filter (\x -> not (roomMap ! x)) (randomRs ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) gen :: [(Int,Int)]) -- get a random unlocked room
+      gen2 <- newStdGen
+      let innerLoc = head $ randomRs ((0,0), (Mov.roomSize,Mov.roomSize)) gen2 -- get a random Mov.InnerLocation
+      gen3 <- newStdGen
+      let dir = head $ randomRs (Mov.West, Mov.East) gen3 -- get a random Mov.Direction
+      let newPos = (loc, innerLoc, dir)
+      return newPos
+   | otherwise = do
+      gen <- newStdGen
+      let loc = head $ randomRs ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) gen :: [(Int,Int)] -- get a random room
+      gen2 <- newStdGen
+      let innerLoc = head $ randomRs ((0,0), (Mov.roomSize,Mov.roomSize)) gen2
+      gen3 <- newStdGen
+      let dir = head $ randomRs (Mov.West, Mov.East) gen3
+      let newPos = (loc, innerLoc, dir)
+      return newPos
+      
 
 
 

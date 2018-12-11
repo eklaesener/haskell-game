@@ -25,6 +25,8 @@ itemList = [(0, "Test", Nil)
            ,(12, "Key for Room (2,3)", Key (2,3))
            ]
 
+itemCount :: Int
+itemCount = length itemList
 
 data Character = Character { name :: String
                            , hp :: Float
