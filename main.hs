@@ -60,20 +60,16 @@ createPlayer roomMap charMap = do
    return (id, newMap)
 
 
-createItems :: Int -> Bool ->  Mov.Map -> ItemMap -> IO ([Int], ItemMap)
-createItems count checkForLocked roomMap itemMap
-   | count == 1 = do
-      gen <- newStdGen
-      let id = head $ filter (\x -> not (Map.member x itemMap)) (randoms gen :: [Int])
-      gen2 <- newStdGen
-      let itemID = head (randomRs (0,Cha.itemCount) gen :: [Int])
-      let item = Cha.itemList !! itemID
-      pos <- randomPosition checkForLocked roomMap
-      let newMap = Map.insert id (item, pos) itemMap
-      return ([id], newMap)
-   | otherwise = do
-      gen <- newStdGen
-      let id = 
+createItem :: Bool ->  Mov.Map -> ItemMap -> IO (Int, ItemMap)
+createItem checkForLocked roomMap itemMap
+   gen <- newStdGen
+   let id = head $ filter (\x -> not (Map.member x itemMap)) (randoms gen :: [Int])
+   gen2 <- newStdGen
+   let itemID = head (randomRs (0,Cha.itemCount) gen :: [Int])
+   let item = Cha.itemList !! itemID
+   pos <- randomPosition checkForLocked roomMap
+   let newMap = Map.insert id (item, pos) itemMap
+   return (id, newMap)
 
 randomPosition :: Bool -> Mov.Map -> IO Mov.Position
 randomPosition checkForLocked roomMap
