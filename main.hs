@@ -31,7 +31,7 @@ weightedList gen weightList = evalRand m gen
 
 
 createMap :: IO Mov.Map -- creates a new map with randomly locked rooms
-createMap = do 
+createMap = do
    gen <- newStdGen
    let weightList = [(True, 2), (False, 6)]
    let randomBools = take Mov.numRooms (weightedList gen weightList)
@@ -100,7 +100,7 @@ randomPosition checkForLocked roomMap
       let dir = head $ randomRs (Mov.West, Mov.East) gen3
       let newPos = (loc, innerLoc, dir)
       return newPos
-      
+
 
 
 
@@ -177,27 +177,30 @@ action str @game(roomMap, playerID, charMap, ladderID, itemMap)
       case resultUnformatted of
          (Left str) -> do
             case str of
-               "Wall" -> do
-                  print getWallMsg
-               "Door blocked" -> do
-                  print getDoorBlockedMsg
+               str | str == "Wall" -> do
+                      print getWallMsg
+                   | str == "Door blocked" -> do
+                      print getDoorBlockedMsg
             return $ Right game
          (Right @newPos(room, inner, dir)) -> do
             if roomMap ! room then do
                print getRoomLockedMsg
                return $ Right game
-            else if (ladderRoom == room) && (ladderInner == inner) then do
+            else if (ladderRoom == room) && (ladderInner == inner) then
+               if (Mov.isCorner inner) then do
+                  return $ Left "Idiot!"
+               else do
                   
+            else
                let newCharMap = Map.insert playerID (player, newPos) charMap
-               return $ Right 
+               return $ Right (roomMap, playerID, newCharMap, ladderID, itemMap)
 
 
 
 
 
-main = do 
+main = do
    roomMap <- createMap
    (playerID, charMap1) <- createPlayer roomMap Map.empty
    (charID, charMap2) <- createCharacter charMap1
    print roomMap
---   putStrLn result
