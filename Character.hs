@@ -37,13 +37,13 @@ data Character = Character { name :: String
 
 
 setHealth :: Float -> Character -> Character
-setHealth x (Character name _ pc items) = (Character name x pc items)
+setHealth x (Character name _ pc items) = Character name x pc items
 
 changeHealth :: Float -> Character -> Character
-changeHealth x (Character name oldhp pc items) = (Character name (oldhp + x) pc items)
+changeHealth x (Character name oldhp pc items) = Character name (oldhp + x) pc items
 
 changeName :: String -> Character -> Character
-changeName name (Character _ hp pc items) = (Character name hp pc items)
+changeName name (Character _ hp pc items) = Character name hp pc items
 
 setPlayerCharacter :: Bool -> Character -> Character
-setPlayerCharacter pc (Character name hp _ items) = (Character name hp pc items)
+setPlayerCharacter pc (Character name hp _ items) = Character name hp pc items

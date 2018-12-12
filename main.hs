@@ -61,7 +61,7 @@ createPlayer roomMap charMap = do
 
 
 createItem :: Bool ->  Mov.Map -> ItemMap -> IO (Int, ItemMap)
-createItem checkForLocked roomMap itemMap
+createItem checkForLocked roomMap itemMap = do
    gen <- newStdGen
    let id = head $ filter (\x -> not (Map.member x itemMap)) (randoms gen :: [Int])
    gen2 <- newStdGen
@@ -141,7 +141,7 @@ initialize :: IO Game
 initialize = do
    roomMap <- createMap
    (playerID, charMap1) <- createPlayer roomMap Map.empty
-   let gen <- newStdGen
+   gen <- newStdGen
    let numItems = head $ randomRs (0,Mov.numRooms) gen
    (itemID1, itemMap1) <- createItem False roomMap Map.empty
    (itemID2, itemMap2) <- createItem False roomMap itemMap1
@@ -154,7 +154,7 @@ initialize = do
 gameState :: Game -> IO String
 gameState game = do
    resultUnformatted <- play game
-   let result = case resultUnformatted of
+   case resultUnformatted of
       (Left str) -> return str
       (Right game2) -> gameState game2
 
@@ -190,7 +190,7 @@ action str @game(roomMap, playerID, charMap, ladderID, itemMap)
                if (Mov.isCorner inner) then do
                   return $ Left "Idiot!"
                else do
-                  
+
             else
                let newCharMap = Map.insert playerID (player, newPos) charMap
                return $ Right (roomMap, playerID, newCharMap, ladderID, itemMap)
