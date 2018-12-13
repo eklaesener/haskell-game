@@ -65,7 +65,7 @@ move (l, il, d) TurnRight = Right (l, il, toEnum (fromEnum d - 1))
 
 
 move (l, il, East) TurnLeft = Right (l, il, North)
-move (l, il, d) TurnLeft = Right (l, il, toEnum (fromEnum d - 1))
+move (l, il, d) TurnLeft = Right (l, il, toEnum (fromEnum d + 1))
 
 
 move ((ns, we), (x, y), North) Advance

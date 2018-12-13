@@ -65,20 +65,22 @@ createItem checkForLocked roomMap itemMap = do
    gen <- newStdGen
    let id = head $ filter (\x -> not (Map.member x itemMap)) (randoms gen :: [Int])
    gen2 <- newStdGen
-   let itemID = head (randomRs (0,Cha.itemCount) gen :: [Int])
+   let itemID = head (randomRs (0,Cha.itemCount-1) gen :: [Int])
    let item = Cha.itemList !! itemID
    pos <- randomPosition checkForLocked roomMap
    let newMap = Map.insert id (item, pos) itemMap
    return (id, newMap)
 
-{-createItems :: Int -> Bool -> Mov.Map -> ItemMap -> IO ([Int], ItemMap)
-createItems count checkForLocked roomMap itemMap
-   | count == 1 = do
-      (id, newMap) <- createItem
-      return ([id], newMap)
-   | otherwise = do
-      let list = take count . sequence . repeat $ createItem checkForLocked roomMap itemMap -}
-
+createLadder :: Bool -> Mov.Map -> ItemMap -> IO (Int, ItemMap)
+createLadder checkForLocked roomMap itemMap = do
+  gen <- newStdGen
+  let id = head $ filter (\x -> not (Map.member x itemMap)) (randoms gen :: [Int])
+  gen2 <- newStdGen
+  let itemID = last Cha.itemList
+  let item = Cha.itemList !! itemID
+  pos <- randomPosition checkForLocked roomMap
+  let newMap = Map.insert id (item, pos) itemMap
+  return (id, newMap)
 
 randomPosition :: Bool -> Mov.Map -> IO Mov.Position
 randomPosition checkForLocked roomMap
@@ -145,7 +147,7 @@ initialize = do
    let numItems = head $ randomRs (0,Mov.numRooms) gen
    (itemID1, itemMap1) <- createItem False roomMap Map.empty
    (itemID2, itemMap2) <- createItem False roomMap itemMap1
-   (ladderID, itemMap3) <- createItem True roomMap itemMap2
+   (ladderID, itemMap3) <- createLadder True roomMap itemMap2
    let (Just (_, ladderPos)) = Map.lookup ladderID itemMap3
    let itemMap4 = Map.insert ladderID (last Cha.itemList, ladderPos)
    return (roomMap, playerID, charMap1, ladderID, itemMap4)
@@ -200,7 +202,6 @@ action str @game(roomMap, playerID, charMap, ladderID, itemMap)
 
 
 main = do
-   roomMap <- createMap
-   (playerID, charMap1) <- createPlayer roomMap Map.empty
-   (charID, charMap2) <- createCharacter charMap1
-   print roomMap
+   game <- initialize
+   state <- gameState game
+   print state
