@@ -166,34 +166,31 @@ play :: Game -> IO (Either String Game)
 play game = do
    print "What do you want to do next?"
    input <- getLine
-   result <- action input game
-   return result
+   action input game
 
 
 action :: String -> Game -> IO (Either String Game)
-action str @game(roomMap, playerID, charMap, ladderID, itemMap)
+action str game@(roomMap, playerID, charMap, ladderID, itemMap)
    | str == "go forward" = do
       let (Just player, pos) = Map.lookup playerID charMap
-      let (Just _, @ladderPos(ladderRoom, ladderInner, ladderDir)) = Map.lookup ladderID itemMap
+      let (Just _, ladderPos@(ladderRoom, ladderInner, ladderDir)) = Map.lookup ladderID itemMap
       let resultUnformatted = Mov.move pos Advance
       case resultUnformatted of
          (Left str) -> do
             case str of
-               str | str == "Wall" -> do
-                      print getWallMsg
-                   | str == "Door blocked" -> do
-                      print getDoorBlockedMsg
+               str | str == "Wall" -> print getWallMsg
+                   | str == "Door blocked" -> print getDoorBlockedMsg
             return $ Right game
-         (Right @newPos(room, inner, dir)) -> do
-            if roomMap ! room then do
+         (Right newPos@(room, inner@(x,y), dir))
+            | roomMap ! room -> do
                print getRoomLockedMsg
                return $ Right game
-            else if (ladderRoom == room) && (ladderInner == inner) then
-               if (Mov.isCorner inner) then do
-                  return $ Left "Idiot!"
+            | (ladderRoom == room) && (ladderInner == inner) ->
+               if Mov.isCorner inner then return $ Left "Idiot!"
                else do
-
-            else
+                  let
+                  return $ Left "Bla"
+            | otherwise -> do
                let newCharMap = Map.insert playerID (player, newPos) charMap
                return $ Right (roomMap, playerID, newCharMap, ladderID, itemMap)
 
@@ -204,4 +201,4 @@ action str @game(roomMap, playerID, charMap, ladderID, itemMap)
 main = do
    game <- initialize
    state <- gameState game
-   print state
+   putStrLn state
