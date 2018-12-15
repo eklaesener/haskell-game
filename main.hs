@@ -177,9 +177,9 @@ action str game@(roomMap, playerID, charMap, ladderID, itemMap)
       let resultUnformatted = Mov.move pos Advance
       case resultUnformatted of
          (Left str) -> do
-            case str of
-               str | str == "Wall" -> print getWallMsg
-                   | str == "Door blocked" -> print getDoorBlockedMsg
+            case str of str
+               | str == "Wall" -> print getWallMsg
+               | str == "Door blocked" -> print getDoorBlockedMsg
             return $ Right game
          (Right newPos@(room, inner@(x,y), dir))
             | roomMap ! room -> do
@@ -187,7 +187,8 @@ action str game@(roomMap, playerID, charMap, ladderID, itemMap)
                return $ Right game
             | (ladderRoom == room) && (ladderInner == inner) ->
                if Mov.isCorner inner then return $ Left "Idiot!"
-               else do
+               else case (x,y) of (x,y)
+                  | x == 0 && Mov.isDoor y -> 
                   let
                   return $ Left "Bla"
             | otherwise -> do
