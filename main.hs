@@ -76,8 +76,7 @@ createLadder checkForLocked roomMap itemMap = do
   gen <- newStdGen
   let id = head $ filter (\x -> not (Map.member x itemMap)) (randoms gen :: [Int])
   gen2 <- newStdGen
-  let itemID = last Cha.itemList
-  let item = Cha.itemList !! itemID
+  let item = last Cha.itemList
   pos <- randomPosition checkForLocked roomMap
   let newMap = Map.insert id (item, pos) itemMap
   return (id, newMap)
@@ -95,9 +94,9 @@ randomPosition checkForLocked roomMap
       return newPos
    | otherwise = do
       gen <- newStdGen
-      let loc = head $ randomRs ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) gen :: [(Int,Int)] -- get a random room
+      let loc = head $ randomRs ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) gen :: (Int, Int) -- get a random room
       gen2 <- newStdGen
-      let innerLoc = head $ randomRs ((0,0), (Mov.roomSize,Mov.roomSize)) gen2
+      let innerLoc = head $ randomRs ((0,0), (Mov.roomSize,Mov.roomSize)) gen2 :: (Int, Int)
       gen3 <- newStdGen
       let dir = head $ randomRs (Mov.West, Mov.East) gen3
       let newPos = (loc, innerLoc, dir)
@@ -149,7 +148,7 @@ initialize = do
    (itemID2, itemMap2) <- createItem False roomMap itemMap1
    (ladderID, itemMap3) <- createLadder True roomMap itemMap2
    let (Just (_, ladderPos)) = Map.lookup ladderID itemMap3
-   let itemMap4 = Map.insert ladderID (last Cha.itemList, ladderPos)
+   let itemMap4 = Map.insert ladderID (last Cha.itemList, ladderPos) itemMap3
    return (roomMap, playerID, charMap1, ladderID, itemMap4)
 
 
@@ -170,12 +169,12 @@ play game = do
 
 
 action :: String -> Game -> IO (Either String Game)
-action str game@(roomMap, playerID, charMap, ladderID, itemMap)
+action str oldGame@(roomMap, playerID, charMap, ladderID, itemMap)
    | str == "go forward" = do
-      let (Just player, pos) = Map.lookup playerID charMap
-      let (Just _, ladderPos@(ladderRoom, ladderInner, ladderDir)) = Map.lookup ladderID itemMap
-      let resultUnformatted = Mov.move pos Advance
-      case resultUnformatted of
+      let (Just (player, oldPos@(oldRoom, oldInner, oldDir))) = Map.lookup playerID charMap
+      let (Just (ladder, ladderPos@(ladderRoom, ladderInner, ladderDir))) = Map.lookup ladderID itemMap
+      let result = Mov.move oldPos Mov.Advance
+{-      case resultUnformatted of
          (Left str) -> do
             case str of str
                | str == "Wall" -> print getWallMsg
@@ -194,10 +193,51 @@ action str game@(roomMap, playerID, charMap, ladderID, itemMap)
             | otherwise -> do
                let newCharMap = Map.insert playerID (player, newPos) charMap
                return $ Right (roomMap, playerID, newCharMap, ladderID, itemMap)
-
-
-
-
+-}
+      case result of
+         Left str -- the move function has caught something to be handled here
+            | str == "Wall" -> do
+               print getWallMsg
+               return $ Right oldGame
+            | str == "Door blocked" -> do
+               print getDoorBlockedMsg
+               return $ Right oldGame
+         Right newPos@(newRoom, newInner, newDir)
+            | roomMap ! newRoom -> do -- if the new room is locked, don't allow the move
+               print getRoomLockedMsg
+               return $ Right oldGame
+            | newRoom /= ladderRoom || newInner /= ladderInner -> do -- we won't collide with the ladder, so everything is alright
+               let newCharMap = Map.insert playerID (player, newPos) charMap
+               return $ Right (roomMap, playerID, newCharMap, ladderID, itemMap)
+            | Mov.isWall oldInner || not (Mov.isWall newInner) -> do
+               -- we know that the push can't go wrong, so we don't need case
+               let (Right newLadderPos@(newLadderRoom, newLadderInner, _)) = Mov.move newPos Mov.Advance
+               if Mov.isCorner newLadderInner
+                  then return $ Left "Idiot!"
+                  else do
+                     -- update ladder and player positions and return them
+                     let newItemMap = Map.insert ladderID (ladder, (newLadderRoom, newLadderInner, ladderDir)) itemMap
+                     let newCharMap = Map.insert playerID (player, newPos) charMap
+                     return $ Right (roomMap, playerID, newCharMap, ladderID, newItemMap)
+            | not (Mov.isDoor newInner) -> do
+               -- we're trying to push the ladder through the wall here
+               print getWallPushMsg
+               return $ Right oldGame
+            | otherwise -> do
+               let result2 = Mov.move newPos Mov.Advance
+               case result2 of
+                  Left str -> do
+                     print getDoorBlockedMsg
+                     return $ Right oldGame
+                  Right newLadderPos@(newLadderRoom, newLadderInner, _)
+                     | roomMap ! newLadderRoom -> do
+                        print getRoomLockedMsg
+                        return $ Right oldGame
+                     | otherwise -> do
+                        -- update ladder and player positions and return them
+                        let newItemMap = Map.insert ladderID (ladder, (newLadderRoom, newLadderInner, ladderDir)) itemMap
+                        let newCharMap = Map.insert playerID (player, newPos) charMap
+                        return $ Right (roomMap, playerID, newCharMap, ladderID, newItemMap)
 
 main = do
    game <- initialize
