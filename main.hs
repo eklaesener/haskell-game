@@ -6,7 +6,7 @@ import Control.Monad.Random
 import qualified Data.Map.Strict as Map
 import qualified Movement as Mov
 import qualified Character as Cha
-import qualified Draw
+-- import qualified Draw
 
 {- making Pairs an instance of Random
    taken from https://stackoverflow.com/questions/26674929/haskell-no-instance-for-random-point-arising-from-a-use-of-genrandom -}
@@ -224,7 +224,7 @@ initialize = do
             putStrLn "Unrecognized input! Please try again..."
             initialize
 
-
+{-
 drawMap :: Game -> IO ()
 drawMap game@(_, _, (winRoom, (winX, winY), _), playerID, charMap, ladderID, itemMap) = do
    let (Just (_, (playerRoom, (playerX,playerY), playerDir))) = Map.lookup playerID charMap
@@ -249,7 +249,7 @@ drawMap game@(_, _, (winRoom, (winX, winY), _), playerID, charMap, ladderID, ite
             let sortedList = mergeSort list
             Draw.draw sortedList
 
-
+-}
 
 
 
