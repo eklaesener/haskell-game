@@ -209,10 +209,11 @@ initialize = do
 
 gameState :: Game -> IO String
 gameState game@(_, winPos, playerID, charMap, ladderID, itemMap) = do
-   putStrLn $ show winPos ++ "\n"
-   putStrLn . show $ Map.lookup playerID charMap
-   putStrLn $ show (Map.lookup ladderID itemMap) ++ "\n"
---   putStrLn $ show itemMap ++ "\n"
+   putStrLn $ "The win position is " ++ show winPos ++ "\n"
+   let (Just (player, pos)) = Map.lookup playerID charMap
+   putStrLn $ "Your stats are " ++ show player ++ "\nand your position is " ++ show pos ++ "\n"
+   let (Just (_, ladderPos)) = Map.lookup ladderID itemMap
+   putStrLn $ "The ladder position is " ++ show ladderPos ++ "\n"
    resultUnformatted <- play game
    case resultUnformatted of
       (Left str) -> return str
@@ -224,6 +225,7 @@ play :: Game -> IO (Either String Game)
 play game = do
    putStrLn "What do you want to do next?\n"
    input <- getLine
+   putStrLn "\n"
    action input game
 
 
@@ -365,13 +367,13 @@ action str oldGame@(roomMap, winPos, playerID, charMap, ladderID, itemMap)
       tempResult2 <- action "go forward" tempGame1
       case tempResult2 of
          Left str -> return $ Left str
-         (Right tempGame2) -> do action "turn right" tempGame2
+         (Right tempGame2) -> action "turn right" tempGame2
    | str == "go right" = do
       (Right tempGame1) <- action "turn right" oldGame
       tempResult2 <- action "go forward" tempGame1
       case tempResult2 of
          Left str -> return $ Left str
-         (Right tempGame2) -> do action "turn left" tempGame2
+         (Right tempGame2) -> action "turn left" tempGame2
 --
 -- Getting a list of commands:
    | str == "help" = do
@@ -402,6 +404,6 @@ action str oldGame@(roomMap, winPos, playerID, charMap, ladderID, itemMap)
 
 main = do
    game@(roomMap, _, _, _, _, _) <- initialize
-   putStrLn $ show roomMap ++ "\n"
+   putStrLn $ "Which rooms are locked (True) and which aren't (False)\n" ++ show roomMap ++ "\n"
    state <- gameState game
    putStrLn state
