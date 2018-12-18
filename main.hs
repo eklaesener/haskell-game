@@ -408,18 +408,18 @@ action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemM
                         let newItemMap = Map.insert ladderID (ladder, (newLadderRoom, newLadderInner, ladderDir)) itemMap
                         let newCharMap = Map.insert playerID (player, newPos) charMap
                         return $ Right (control, roomMap, winPos, playerID, newCharMap, ladderID, newItemMap)
-            | not (Mov.isDoor newInner) -> do
-               -- we're trying to push the ladder through the wall here
-               msg <- getWallPushMsg
-               putStrLn msg
-               return $ Right oldGame
             | otherwise -> do -- we're okay to move, but need to check the same things as before
-               let result2 = Mov.move newPos Mov.BackOff
+               let result2 = Mov.move newPos Mov.Advance
                case result2 of
-                  Left str -> do
-                     msg <- getDoorBlockedMsg
-                     putStrLn msg
-                     return $ Right oldGame
+                  Left str
+                     | str == "Wall" -> do
+                        msg <- getWallPushMsg
+                        putStrLn msg
+                        return $ Right oldGame
+                     | str == "Door blocked" -> do
+                        msg <- getDoorBlockedMsg
+                        putStrLn msg
+                        return $ Right oldGame
                   Right newLadderPos@(newLadderRoom, newLadderInner, _)
                      | roomMap ! newLadderRoom -> do
                         msg <- getRoomLockedMsg
