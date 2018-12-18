@@ -108,17 +108,22 @@ randomPosition checkForLocked roomMap
 
 
 -- to sort the list that gets sent to the Draw.draw function
-mergeSort :: [(Mov.InnerLocation, String)] -> [(Mov.InnerLocation, String)]
-mergeSort [] = []
-mergeSort [a] = [a]
-mergeSort = mergeRuns . ascRun
+isort :: [(Mov.InnerLocation, String)] -> [(Mov.InnerLocation, String)]
+isort [] = []
+isort [a] = [a]
+isort (a@((x1,y1), _) : b@((x2,y2), _) : rest)
+   | x2 < x1 = b : isort (a:rest)
+   | x1 < x2 = a : isort (b:rest)
+   | y2 < y1 = b : isort (a:rest)
+   | otherwise = a : isort (b:rest)
 
 
+{-
 ascRun run b [] = [reverse (b:run)]
 ascRun run b (x:xs)
    | b<=x = ascRun (b:run) x xs
    | otherwise = (reverse (b:run)) : runs (x:xs)
-
+-}
 
 
 
@@ -241,21 +246,21 @@ drawMap game@(_, _, (winRoom, (winX, winY), _), playerID, charMap, ladderID, ite
    if playerRoom == ladderRoom
       then if playerRoom == winRoom
          then do
-            let list = [((playerX, playerY), Draw.player), ((ladderX, ladderY), Draw.ladder), ((winX, winY), Draw.win), ] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY), (x,y) /= (ladderX, ladderY), (x,y) /= (winX, winY)]
-            let sortedList = mergeSort list
+            let list = [((playerX, playerY), Draw.player playerDir), ((ladderX, ladderY), Draw.ladder), ((winX, winY), Draw.win)] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY), (x,y) /= (ladderX, ladderY), (x,y) /= (winX, winY)]
+            let sortedList = isort list
             Draw.draw sortedList
          else do
             let list = [((playerX, playerY), Draw.player playerDir), ((ladderX, ladderY), Draw.ladder)] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY), (x,y) /= (ladderX, ladderY)]
-            let sortedList = mergeSort list
+            let sortedList = isort list
             Draw.draw sortedList
       else if playerRoom == winRoom
          then do
             let list = [((playerX, playerY), Draw.player playerDir), ((winX, winY), Draw.win)] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY), (x,y) /= (winX, winY)]
-            let sortedList = mergeSort list
+            let sortedList = isort list
             Draw.draw sortedList
          else do
             let list = [((playerX, playerY), Draw.player playerDir)] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY)]
-            let sortedList = mergeSort list
+            let sortedList = isort list
             Draw.draw sortedList
 
 
@@ -266,11 +271,12 @@ drawMap game@(_, _, (winRoom, (winX, winY), _), playerID, charMap, ladderID, ite
 -- Here, we finally get to play the game!
 gameState :: Game -> IO String
 gameState game@(control, _, winPos, playerID, charMap, ladderID, itemMap) = do
-   putStrLn $ "The win position is " ++ show winPos ++ "\n"
-   let (Just (player, pos)) = Map.lookup playerID charMap
-   putStrLn $ "Your stats are " ++ show player ++ "\nand your position is " ++ show pos ++ "\n"
-   let (Just (_, ladderPos)) = Map.lookup ladderID itemMap
-   putStrLn $ "The ladder position is " ++ show ladderPos ++ "\n"
+   drawMap game
+--   putStrLn $ "The win position is " ++ show winPos ++ "\n"
+--   let (Just (player, pos)) = Map.lookup playerID charMap
+--   putStrLn $ "Your stats are " ++ show player ++ "\nand your position is " ++ show pos ++ "\n"
+--   let (Just (_, ladderPos)) = Map.lookup ladderID itemMap
+--   putStrLn $ "The ladder position is " ++ show ladderPos ++ "\n"
    if control
       then do
          resultUnformatted <- shortInput game
