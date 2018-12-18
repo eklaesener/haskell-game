@@ -110,12 +110,15 @@ randomPosition checkForLocked roomMap
 -- to sort the list that gets sent to the Draw.draw function
 isort :: [(Mov.InnerLocation, String)] -> [(Mov.InnerLocation, String)]
 isort [] = []
-isort [a] = [a]
-isort (a@((x1,y1), _) : b@((x2,y2), _) : rest)
-   | x2 < x1 = b : isort (a:rest)
-   | x1 < x2 = a : isort (b:rest)
-   | y2 < y1 = b : isort (a:rest)
-   | otherwise = a : isort (b:rest)
+isort (a : rest) = insert a (isort rest)
+
+insert :: (Mov.InnerLocation, String) -> [(Mov.InnerLocation, String)] -> [(Mov.InnerLocation, String)]
+insert a [] = [a]
+insert a@((x1, y1), _) (b@((x2, y2), _) : rest)
+   | x2 < x1 = b : insert a rest
+   | x1 < x2 = a : b : rest
+   | y2 < y1 = b : insert a rest
+   | otherwise = a : b : rest
 
 
 {-

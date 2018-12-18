@@ -15,9 +15,9 @@ door = " ▯ "
 
 player :: Direction -> String
 player North = " ⭡ "
-player East = " ⭢ "
+player East = " > "
 player South = " ⭣ "
-player West = " ⭠ "
+player West = " < "
 
 
 ladder :: String
