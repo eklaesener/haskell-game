@@ -13,11 +13,16 @@ dot = " . "
 door :: String
 door = " ▯ "
 
+doorList :: [(InnerLocation, String)]
 doorList = [((x,y), door) 
            | x <- [0 .. roomSize]
            , y <- [0 .. roomSize]
            , isDoorFull (x,y)]
-
+filterDoorList :: InnerLocation -> [(InnerLocation, String)]
+filterDoorList (a,b) = [((x,y), door)
+                       | x <- [0 .. roomSize]
+                       , y <- [0 .. roomSize]
+                       , (x,y) /= (a,b)]
 
 
 player :: Direction -> String
