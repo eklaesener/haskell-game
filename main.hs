@@ -236,16 +236,16 @@ drawMap game@(_, _, (winRoom, (winX, winY), _), playerID, charMap, ladderID, ite
             let sortedList = mergeSort list
             Draw.draw sortedList
          else do
-            let list = [((playerX, playerY), Draw.player), ((ladderX, ladderY), Draw.ladder)] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY), (x,y) /= (ladderX, ladderY)]
+            let list = [((playerX, playerY), Draw.player playerDir), ((ladderX, ladderY), Draw.ladder)] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY), (x,y) /= (ladderX, ladderY)]
             let sortedList = mergeSort list
             Draw.draw sortedList
       else if playerRoom == winRoom
          then do
-            let list = [((playerX, playerY), Draw.player), ((winX, winY), Draw.win)] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY), (x,y) /= (winX, winY)]
+            let list = [((playerX, playerY), Draw.player playerDir), ((winX, winY), Draw.win)] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY), (x,y) /= (winX, winY)]
             let sortedList = mergeSort list
             Draw.draw sortedList
          else do
-            let list = [((playerX, playerY), Draw.player)] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY)]
+            let list = [((playerX, playerY), Draw.player playerDir)] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY)]
             let sortedList = mergeSort list
             Draw.draw sortedList
 
