@@ -6,7 +6,7 @@ import Control.Monad.Random
 import qualified Data.Map.Strict as Map
 import qualified Movement as Mov
 import qualified Character as Cha
--- import qualified Draw
+import qualified Draw
 
 {- making Pairs an instance of Random
    taken from https://stackoverflow.com/questions/26674929/haskell-no-instance-for-random-point-arising-from-a-use-of-genrandom -}
@@ -107,8 +107,17 @@ randomPosition checkForLocked roomMap
       return newPos
 
 
+-- to sort the list that gets sent to the Draw.draw function
+mergeSort :: [(Mov.InnerLocation, String)] -> [(Mov.InnerLocation, String)]
+mergeSort [] = []
+mergeSort [a] = [a]
+mergeSort = mergeRuns . ascRun
 
 
+ascRun run b [] = [reverse (b:run)]
+ascRun run b (x:xs)
+   | b<=x = ascRun (b:run) x xs
+   | otherwise = (reverse (b:run)) : runs (x:xs)
 
 
 
@@ -224,7 +233,7 @@ initialize = do
             putStrLn "Unrecognized input! Please try again..."
             initialize
 
-{-
+
 drawMap :: Game -> IO ()
 drawMap game@(_, _, (winRoom, (winX, winY), _), playerID, charMap, ladderID, itemMap) = do
    let (Just (_, (playerRoom, (playerX,playerY), playerDir))) = Map.lookup playerID charMap
@@ -232,7 +241,7 @@ drawMap game@(_, _, (winRoom, (winX, winY), _), playerID, charMap, ladderID, ite
    if playerRoom == ladderRoom
       then if playerRoom == winRoom
          then do
-            let list = [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY), (x,y) /= (ladderX, ladderY), (x,y) /= (winX, winY)] ++ [((playerX, playerY), Draw.player), ((ladderX, ladderY), Draw.ladder), ((winX, winY), Draw.win)]
+            let list = [((playerX, playerY), Draw.player), ((ladderX, ladderY), Draw.ladder), ((winX, winY), Draw.win), ] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY), (x,y) /= (ladderX, ladderY), (x,y) /= (winX, winY)]
             let sortedList = mergeSort list
             Draw.draw sortedList
          else do
@@ -249,7 +258,7 @@ drawMap game@(_, _, (winRoom, (winX, winY), _), playerID, charMap, ladderID, ite
             let sortedList = mergeSort list
             Draw.draw sortedList
 
--}
+
 
 
 
