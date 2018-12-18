@@ -32,6 +32,12 @@ highBoundWE = 3
 isDoor :: Int -> Bool
 isDoor x = x >= leftDoorCoord && x <= rightDoorCoord
 
+-- also checks for a door, but unlike above, the other coordinate isn't disregarded
+isDoorFull :: InnerLocation -> Bool
+isDoorFull (x,y)
+   | isWall (x,y) && (isDoor x || isDoor y) = True
+   | otherwise = False
+
 isCorner :: InnerLocation -> Bool
 isCorner (x,y)
    | (x == 0 || x == roomSize) && (y == 0 || y == roomSize) = True

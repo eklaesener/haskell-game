@@ -242,29 +242,142 @@ initialize = do
             initialize
 
 
-drawMap :: Game -> IO ()
-drawMap game@(_, _, (winRoom, (winX, winY), _), playerID, charMap, ladderID, itemMap) = do
-   let (Just (_, (playerRoom, (playerX,playerY), playerDir))) = Map.lookup playerID charMap
-   let (Just (_, (ladderRoom, (ladderX, ladderY), ladderDir))) = Map.lookup ladderID itemMap
-   if playerRoom == ladderRoom
-      then if playerRoom == winRoom
+-- uses the module Draw to create a representation of the room's contents on the command line
+drawMap :: Mov.Position -> Mov.Position -> Mov.Position -> IO ()
+drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRoom, winInner, _)
+   -- both the ladder and the win position are in the current room and thus need to be displayed
+   | playerRoom == ladderRoom && playerRoom == winRoom = if playerInner == winInner
+      -- the player should always take priority if his position and the win position clash
+      then if Mov.isDoorFull playerInner
+         -- we don't want the door and the player to clash, so we're filtering that out
          then do
-            let list = [((playerX, playerY), Draw.player playerDir), ((ladderX, ladderY), Draw.ladder), ((winX, winY), Draw.win)] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY), (x,y) /= (ladderX, ladderY), (x,y) /= (winX, winY)]
-            let sortedList = isort list
+            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ filter (not (playerInner `elem`)) Draw.doorList
+            let list2 = [((x,y), Draw.dot) 
+                        | x <- [0 .. Mov.roomSize]
+                        , y <- [0 .. Mov.roomSize]
+                        , (x,y) /= playerInner
+                        , (x,y) /= ladderInner
+                        , not $ Mov.isDoorFull (x,y)]
+            let sortedList = foldr insert list2 list1
             Draw.draw sortedList
          else do
-            let list = [((playerX, playerY), Draw.player playerDir), ((ladderX, ladderY), Draw.ladder)] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY), (x,y) /= (ladderX, ladderY)]
-            let sortedList = isort list
+            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.doorList
+            let list2 = [((x,y), Draw.dot) 
+                        | x <- [0 .. Mov.roomSize]
+                        , y <- [0 .. Mov.roomSize]
+                        , (x,y) /= playerInner
+                        , (x,y) /= ladderInner
+                        , not $ Mov.isDoorFull (x,y)]
+            let sortedList = foldr insert list2 list1
             Draw.draw sortedList
-      else if playerRoom == winRoom
+      else if Mov.isDoorFull playerInner
          then do
-            let list = [((playerX, playerY), Draw.player playerDir), ((winX, winY), Draw.win)] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY), (x,y) /= (winX, winY)]
-            let sortedList = isort list
+            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder), (winInner, Draw.win)] ++ filter (not (playerInner `elem`)) Draw.doorList
+            let list2 = [((x,y), Draw.dot)
+                        | x <- [0 .. Mov.roomSize]
+                        , y <- [0 .. Mov.roomSize]
+                        , (x,y) /= playerInner
+                        , (x,y) /= ladderInner
+                        , (x,y) /= winInner
+                        , not $ Mov.isDoorFull (x,y)]
+            let sortedList = foldr insert list2 list1
             Draw.draw sortedList
          else do
-            let list = [((playerX, playerY), Draw.player playerDir)] ++ [((x,y), Draw.dot) | x <- [0 .. Mov.roomSize], y <- [0 .. Mov.roomSize], (x,y) /= (playerX, playerY)]
-            let sortedList = isort list
+            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.doorList
+            let list2 = [((x,y), Draw.dot)
+                        | x <- [0 .. Mov.roomSize]
+                        , y <- [0 .. Mov.roomSize]
+                        , (x,y) /= playerInner
+                        , (x,y) /= ladderInner
+                        , (x,y) /= winInner
+                        , not $ Mov.isDoorFull (x,y)]
+            let sortedList = foldr insert list2 list1
             Draw.draw sortedList
+   -- the win position isn't in the current room, so only the door check is necessary
+   | playerRoom == ladderRoom = if Mov.isDoorFull playerInner
+      then do
+         let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ filter (not (playerInner `elem`)) Draw.doorList
+         let list2 = [((x,y), Draw.dot)
+                     | x <- [0 .. Mov.roomSize]
+                     , y <- [0 .. Mov.roomSize]
+                     , (x,y) /= playerInner
+                     , (x,y) /= ladderInner
+                     , not $ Mov.isDoorFull (x,y)]
+         let sortedList = foldr insert list2 list1
+         Draw.draw sortedList
+      else do
+         let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.doorList
+         let list2 = [((x,y), Draw.dot)
+                     | x <- [0 .. Mov.roomSize]
+                     , y <- [0 .. Mov.roomSize]
+                     , (x,y) /= playerInner
+                     , (x,y) /= ladderInner
+                     , not $ Mov.isDoorFull (x,y)]
+         let sortedList = foldr insert list2 list1
+         Draw.draw sortedList
+   -- the ladder isn't in the current room, but the win position is
+   | playerRoom == winRoom = if playerInner == winInner
+      then if Mov.isDoorFull playerInner
+         then do
+            let list1 = [(playerInner, Draw.player playerDir)] ++ filter (not (playerInner `elem`)) Draw.doorList
+            let list2 = [((x,y), Draw.dot)
+                        | x <- [0 .. Mov.roomSize]
+                        , y <- [0 .. Mov.roomSize]
+                        , (x,y) /= playerInner
+                        , not $ Mov.isDoorFull (x,y)]
+            let sortedList = foldr insert list2 list1
+            Draw.draw sortedList
+         else do
+            let list1 = [(playerInner, Draw.player playerDir)] ++ Draw.doorList
+            let list2 = [((x,y), Draw.dot)
+                        | x <- [0 .. Mov.roomSize]
+                        , y <- [0 .. Mov.roomSize]
+                        , (x,y) /= playerInner
+                        , not $ Mov.isDoorFull (x,y)]
+            let sortedList = foldr insert list2 list1
+            Draw.draw sortedList
+      else if Mov.isDoorFull playerInner
+         then do
+            let list1 = [(playerInner, Draw.player playerDir), (winInner, Draw.win)] ++ filter (not (playerInner `elem`)) Draw.doorList
+            let list2 = [((x,y), Draw.dot)
+                        | x <- [0 .. Mov.roomSize]
+                        , y <- [0 .. Mov.roomSize]
+                        , (x,y) /= playerInner
+                        , (x,y) /= winInner
+                        , not $ Mov.isDoorFull (x,y)]
+            let sortedList = foldr insert list2 list1
+            Draw.draw sortedList
+         else do
+            let list1 = [(playerInner, Draw.player playerDir)] ++ Draw.doorList
+            let list2 = [((x,y), Draw.dot)
+                        | x <- [0 .. Mov.roomSize]
+                        , y <- [0 .. Mov.roomSize]
+                        , (x,y) /= playerInner
+                        , (x,y) /= winInner
+                        , not $ Mov.isDoorFull (x,y)]
+            let sortedList = foldr insert list2 list1
+            Draw.draw sortedList
+   -- only the player is in the current room
+   | otherwise = if Mov.isDoorFull playerInner
+      then do
+         let list1 = [(playerInner, Draw.player playerDir)] ++ filter (not (playerInner `elem`)) Draw.doorList
+         let list2 = [((x,y), Draw.dot)
+                     | x <- [0 .. Mov.roomSize]
+                     , y <- [0 .. Mov.roomSize]
+                     , (x,y) /= playerInner
+                     , not $ Mov.isDoorFull (x,y)]
+         let sortedList = foldr insert list2 list1
+         Draw.draw sortedList
+      else do
+         let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.doorList
+         let list2 = [((x,y), Draw.dot)
+                     | x <- [0 .. Mov.roomSize]
+                     , y <- [0 .. Mov.roomSize]
+                     , (x,y) /= playerInner
+                     , not $ Mov.isDoorFull (x,y)]
+         let sortedList = foldr insert list2 list1
+         Draw.draw sortedList
+
 
 
 
@@ -274,12 +387,12 @@ drawMap game@(_, _, (winRoom, (winX, winY), _), playerID, charMap, ladderID, ite
 -- Here, we finally get to play the game!
 gameState :: Game -> IO String
 gameState game@(control, _, winPos, playerID, charMap, ladderID, itemMap) = do
-   drawMap game
 --   putStrLn $ "The win position is " ++ show winPos ++ "\n"
---   let (Just (player, pos)) = Map.lookup playerID charMap
+   let (Just (player, pos)) = Map.lookup playerID charMap
 --   putStrLn $ "Your stats are " ++ show player ++ "\nand your position is " ++ show pos ++ "\n"
---   let (Just (_, ladderPos)) = Map.lookup ladderID itemMap
+   let (Just (_, ladderPos)) = Map.lookup ladderID itemMap
 --   putStrLn $ "The ladder position is " ++ show ladderPos ++ "\n"
+   drawMap pos ladderPos winPos
    if control
       then do
          resultUnformatted <- shortInput game
