@@ -18,11 +18,26 @@ doorList = [((x,y), door)
            | x <- [0 .. roomSize]
            , y <- [0 .. roomSize]
            , isDoorFull (x,y)]
-filterDoorList :: InnerLocation -> [(InnerLocation, String)]
-filterDoorList (a,b) = [((x,y), door)
-                       | x <- [0 .. roomSize]
-                       , y <- [0 .. roomSize]
-                       , (x,y) /= (a,b)]
+
+filterDoorList :: [InnerLocation] -> [(InnerLocation, String)]
+filterDoorList [(a,b)] = [((x,y), door)
+                         | x <- [0 .. roomSize]
+                         , y <- [0 .. roomSize]
+                         , (x,y) /= (a,b)
+                         , isDoorFull (x,y)]
+filterDoorList [(a,b), (c,d)] = [((x,y), door)
+                                | x <- [0 .. roomSize]
+                                , y <- [0 .. roomSize]
+                                , (x,y) /= (a,b)
+                                , (x,y) /= (c,d)
+                                , isDoorFull (x,y)]
+filterDoorList [(a,b), (c,d), (e,f)] = [((x,y), door)
+                                       | x <- [0 .. roomSize]
+                                       , y <- [0 .. roomSize]
+                                       , (x,y) /= (a,b)
+                                       , (x,y) /= (c,d)
+                                       , (x,y) /= (e,f)
+                                       , isDoorFull (x,y)]
 
 
 player :: Direction -> String

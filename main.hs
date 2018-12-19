@@ -35,7 +35,7 @@ weightedList gen weightList = evalRand m gen
 createMap :: IO Mov.Map -- creates a new map with randomly locked rooms
 createMap = do
    gen <- newStdGen
-   let weightList = [(True, 2), (False, 6)]
+   let weightList = [(True, 2), (False, 8)]
    let randomBools = take Mov.numRooms (weightedList gen weightList)
    return (listArray ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) randomBools)
 
@@ -199,47 +199,30 @@ hasWon (room1, inner1, _) (room2, inner2, _) = room1 == room2 && inner1 == inner
 emptyGame :: Mov.Map -> Game
 emptyGame map = (False, map, ((0,0),(0,0),Mov.North), 0, Map.empty, 0, Map.empty)
 
+setControl :: String -> Bool
+setControl str = str == "short"
+
+
 
 initialize :: IO Game
 initialize = do
-   putStrLn "Do you want to use long or short controls? Enter long or short, respectively:"
+   putStrLn "Do you want to use long or short controls? Enter short for short controls or anything else for long controls:"
    controlStr <- getLine
-   case controlStr of
-      str
-         | str == "long" -> do
-            roomMap <- createMap
-            let empty = emptyGame roomMap
-            action "help" empty
-            (playerID, charMap1) <- createPlayer roomMap Map.empty
-            let (Just (player, winPosition)) = Map.lookup playerID charMap1
-            gen <- newStdGen
-            let numItems = head $ randomRs (0,Mov.numRooms) gen
-            (itemID1, itemMap1) <- createItem False roomMap Map.empty
-            (itemID2, itemMap2) <- createItem False roomMap itemMap1
-            (ladderID, itemMap3) <- createLadder True roomMap itemMap2
-            let (Just (_, ladderPos)) = Map.lookup ladderID itemMap3
-            let itemMap4 = Map.insert ladderID (last Cha.itemList, ladderPos) itemMap3
-            putStrLn $ "\nWell, " ++ Cha.name player ++ ", you're in quite a pickle right now."
-            putStrLn "Remember? You were exploring a\ncave, but the floor fell away under you... \nMaybe there's a ladder here somewhere?"
-            return (False, roomMap, winPosition, playerID, charMap1, ladderID, itemMap4)
-         | str == "short" -> do
-            roomMap <- createMap
-            let empty = emptyGame roomMap
-            action "help" empty
-            (playerID, charMap1) <- createPlayer roomMap Map.empty
-            let (Just (player, winPosition)) = Map.lookup playerID charMap1
-            gen <- newStdGen
-            let numItems = head $ randomRs (0,Mov.numRooms) gen
-            (itemID1, itemMap1) <- createItem False roomMap Map.empty
-            (itemID2, itemMap2) <- createItem False roomMap itemMap1
-            (ladderID, itemMap3) <- createLadder True roomMap itemMap2
-            let (Just (_, ladderPos)) = Map.lookup ladderID itemMap3
-            let itemMap4 = Map.insert ladderID (last Cha.itemList, ladderPos) itemMap3
-            putStrLn $ "\nWell, " ++ Cha.name player ++ ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere?"
-            return (True, roomMap, winPosition, playerID, charMap1, ladderID, itemMap4)
-         | otherwise -> do
-            putStrLn "Unrecognized input! Please try again..."
-            initialize
+   let control = setControl controlStr
+   roomMap <- createMap
+   let empty = emptyGame roomMap
+   action "help" empty
+   (playerID, charMap1) <- createPlayer roomMap Map.empty
+   let (Just (player, winPosition)) = Map.lookup playerID charMap1
+   gen <- newStdGen
+   let numItems = head $ randomRs (0,Mov.numRooms) gen
+   (itemID1, itemMap1) <- createItem False roomMap Map.empty
+   (itemID2, itemMap2) <- createItem False roomMap itemMap1
+   (ladderID, itemMap3) <- createLadder True roomMap itemMap2
+   let (Just (_, ladderPos)) = Map.lookup ladderID itemMap3
+   let itemMap4 = Map.insert ladderID (last Cha.itemList, ladderPos) itemMap3
+   putStrLn $ "\nWell, " ++ Cha.name player ++ ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere?"
+   return (control, roomMap, winPosition, playerID, charMap1, ladderID, itemMap4)
 
 
 -- uses the module Draw to create a representation of the room's contents on the command line
@@ -251,7 +234,7 @@ drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRo
       then if Mov.isDoorFull playerInner
          -- we don't want the door and the player to clash, so we're filtering that out
          then do
-            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.filterDoorList playerInner
+            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.filterDoorList [playerInner, ladderInner]
             let list2 = [((x,y), Draw.dot) 
                         | x <- [0 .. Mov.roomSize]
                         , y <- [0 .. Mov.roomSize]
@@ -261,7 +244,7 @@ drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRo
             let sortedList = foldr insert list2 list1
             Draw.draw sortedList
          else do
-            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.doorList
+            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.filterDoorList [ladderInner]
             let list2 = [((x,y), Draw.dot) 
                         | x <- [0 .. Mov.roomSize]
                         , y <- [0 .. Mov.roomSize]
@@ -272,7 +255,7 @@ drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRo
             Draw.draw sortedList
       else if Mov.isDoorFull playerInner
          then do
-            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder), (winInner, Draw.win)] ++ Draw.filterDoorList playerInner
+            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder), (winInner, Draw.win)] ++ Draw.filterDoorList [playerInner, ladderInner, winInner]
             let list2 = [((x,y), Draw.dot)
                         | x <- [0 .. Mov.roomSize]
                         , y <- [0 .. Mov.roomSize]
@@ -283,7 +266,7 @@ drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRo
             let sortedList = foldr insert list2 list1
             Draw.draw sortedList
          else do
-            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.doorList
+            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder), (winInner, Draw.win)] ++ Draw.filterDoorList [ladderInner, winInner]
             let list2 = [((x,y), Draw.dot)
                         | x <- [0 .. Mov.roomSize]
                         , y <- [0 .. Mov.roomSize]
@@ -296,7 +279,7 @@ drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRo
    -- the win position isn't in the current room, so only the door check is necessary
    | playerRoom == ladderRoom = if Mov.isDoorFull playerInner
       then do
-         let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.filterDoorList playerInner
+         let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.filterDoorList [playerInner, ladderInner]
          let list2 = [((x,y), Draw.dot)
                      | x <- [0 .. Mov.roomSize]
                      , y <- [0 .. Mov.roomSize]
@@ -306,7 +289,7 @@ drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRo
          let sortedList = foldr insert list2 list1
          Draw.draw sortedList
       else do
-         let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.doorList
+         let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.filterDoorList [ladderInner]
          let list2 = [((x,y), Draw.dot)
                      | x <- [0 .. Mov.roomSize]
                      , y <- [0 .. Mov.roomSize]
@@ -319,7 +302,7 @@ drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRo
    | playerRoom == winRoom = if playerInner == winInner
       then if Mov.isDoorFull playerInner
          then do
-            let list1 = [(playerInner, Draw.player playerDir)] ++ Draw.filterDoorList playerInner
+            let list1 = (playerInner, Draw.player playerDir) : Draw.filterDoorList [playerInner]
             let list2 = [((x,y), Draw.dot)
                         | x <- [0 .. Mov.roomSize]
                         , y <- [0 .. Mov.roomSize]
@@ -328,7 +311,7 @@ drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRo
             let sortedList = foldr insert list2 list1
             Draw.draw sortedList
          else do
-            let list1 = [(playerInner, Draw.player playerDir)] ++ Draw.doorList
+            let list1 = (playerInner, Draw.player playerDir) : Draw.doorList
             let list2 = [((x,y), Draw.dot)
                         | x <- [0 .. Mov.roomSize]
                         , y <- [0 .. Mov.roomSize]
@@ -338,7 +321,7 @@ drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRo
             Draw.draw sortedList
       else if Mov.isDoorFull playerInner
          then do
-            let list1 = [(playerInner, Draw.player playerDir), (winInner, Draw.win)] ++ Draw.filterDoorList playerInner
+            let list1 = [(playerInner, Draw.player playerDir), (winInner, Draw.win)] ++ Draw.filterDoorList [playerInner, winInner]
             let list2 = [((x,y), Draw.dot)
                         | x <- [0 .. Mov.roomSize]
                         , y <- [0 .. Mov.roomSize]
@@ -348,7 +331,7 @@ drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRo
             let sortedList = foldr insert list2 list1
             Draw.draw sortedList
          else do
-            let list1 = [(playerInner, Draw.player playerDir)] ++ Draw.doorList
+            let list1 = [(playerInner, Draw.player playerDir), (winInner, Draw.win)] ++ Draw.filterDoorList [winInner]
             let list2 = [((x,y), Draw.dot)
                         | x <- [0 .. Mov.roomSize]
                         , y <- [0 .. Mov.roomSize]
@@ -360,7 +343,7 @@ drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRo
    -- only the player is in the current room
    | otherwise = if Mov.isDoorFull playerInner
       then do
-         let list1 = [(playerInner, Draw.player playerDir)] ++ Draw.filterDoorList playerInner
+         let list1 = (playerInner, Draw.player playerDir) : Draw.filterDoorList [playerInner]
          let list2 = [((x,y), Draw.dot)
                      | x <- [0 .. Mov.roomSize]
                      , y <- [0 .. Mov.roomSize]
@@ -369,7 +352,7 @@ drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRo
          let sortedList = foldr insert list2 list1
          Draw.draw sortedList
       else do
-         let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.doorList
+         let list1 = (playerInner, Draw.player playerDir) : Draw.doorList
          let list2 = [((x,y), Draw.dot)
                      | x <- [0 .. Mov.roomSize]
                      , y <- [0 .. Mov.roomSize]
@@ -387,23 +370,24 @@ drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRo
 -- Here, we finally get to play the game!
 gameState :: Game -> IO String
 gameState game@(control, _, winPos, playerID, charMap, ladderID, itemMap) = do
---   putStrLn $ "The win position is " ++ show winPos ++ "\n"
    let (Just (player, pos)) = Map.lookup playerID charMap
---   putStrLn $ "Your stats are " ++ show player ++ "\nand your position is " ++ show pos ++ "\n"
    let (Just (_, ladderPos)) = Map.lookup ladderID itemMap
---   putStrLn $ "The ladder position is " ++ show ladderPos ++ "\n"
    drawMap pos ladderPos winPos
    if control
       then do
          resultUnformatted <- shortInput game
          case resultUnformatted of
             (Left str) -> return str
-            (Right game2) -> gameState game2
+            (Right game2) -> do
+               putStrLn . take 15 $ repeat '\n'
+               gameState game2
       else do
          resultUnformatted <- longInput game
          case resultUnformatted of
             (Left str) -> return str
-            (Right game2) -> gameState game2
+            (Right game2) -> do
+               putStrLn . take 15 $ repeat '\n'
+               gameState game2
 
 
 longInput :: Game -> IO (Either String Game)
@@ -506,7 +490,7 @@ action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemM
 --
 -- same procedure as above, just in the other direction
    | str == "go back" = do
-      let (Just (player, oldPos@(oldRoom, oldInner, oldDir))) = Map.lookup playerID charMap
+{-      let (Just (player, oldPos@(oldRoom, oldInner, oldDir))) = Map.lookup playerID charMap
       let (Just (ladder, ladderPos@(ladderRoom, ladderInner, ladderDir))) = Map.lookup ladderID itemMap
       let result = Mov.move oldPos Mov.BackOff
       case result of
@@ -560,7 +544,12 @@ action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemM
                         -- update ladder and player positions and return them
                         let newItemMap = Map.insert ladderID (ladder, (newLadderRoom, newLadderInner, ladderDir)) itemMap
                         let newCharMap = Map.insert playerID (player, newPos) charMap
-                        return $ Right (control, roomMap, winPos, playerID, newCharMap, ladderID, newItemMap)
+                        return $ Right (control, roomMap, winPos, playerID, newCharMap, ladderID, newItemMap)    -}
+      (Right tempGame1) <- action "turn around" oldGame
+      tempGame2 <- action "go forward" tempGame1
+      case tempGame2 of
+         Left str -> return $ Left str
+         Right tempGame2 -> action "turn around" tempGame2
 --
 -- Now for turning:
    | str == "turn left" = do
