@@ -2,7 +2,7 @@ import Data.Array
 import System.IO
 import System.Exit
 import System.Random
-import Control.Monad.Random
+import qualified Control.Monad.Random as Rand
 import qualified Data.Map.Strict as Map
 import qualified Movement as Mov
 import qualified Character as Cha
@@ -17,17 +17,14 @@ instance (Random x, Random y) => Random (x, y) where
       where (randX, gen') = random gen
             (randY, gen'') = random gen'
 
--- making Directions an instance of Random
-instance Random Mov.Direction where
-   randomR (low, high) gen = (toEnum . fst $ randomR (fromEnum low, fromEnum high) gen, snd $ randomR (fromEnum low, fromEnum high) gen)
-   random = randomR (Mov.North, Mov.East)
 
+--
 
 
 -- creates weighted random lists to create a map where comparatively few rooms are locked
 weightedList :: RandomGen g => g -> [(a, Rational)] -> [a]
-weightedList gen weightList = evalRand m gen
-   where m = sequence . repeat . fromList $ weightList
+weightedList gen weightList = Rand.evalRand m gen
+   where m = sequence . repeat . Rand.fromList $ weightList
 
 
 createMap :: IO Mov.Map -- creates a new map with randomly locked rooms
@@ -38,50 +35,66 @@ createMap = do
    return (listArray ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) randomBools)
 
 
-createCharacter :: Bool -> Mov.Map -> CharMap -> IO (Int, CharMap) -- creates an empty character with a unique id - that's why we have to pass that map around!
+createCharacter :: Bool -> Mov.Map -> CharMap -> IO (Int, CharMap) -- creates an empty character with a unique ID - that's why we have to pass that map around!
 createCharacter checkForLocked roomMap charMap = do
    gen <- newStdGen
-   let id = head $ filter (\x -> not (Map.member x charMap)) (randoms gen :: [Int])
+   let newID = head $ filter (\x -> not (Map.member x charMap)) (randoms gen :: [Int])
    let char = Cha.Character "" 100 False []
    pos <- randomPosition checkForLocked roomMap
-   let newMap = Map.insert id (char,pos) charMap
-   return (id, newMap)
+   let newMap = Map.insert newID (char,pos) charMap
+   return (newID, newMap)
 
 
 createPlayer :: Mov.Map -> CharMap -> IO (Int, CharMap) -- creates a new player character
 createPlayer roomMap charMap = do
-   (id, tempMap) <- createCharacter True roomMap charMap
+   (newID, tempMap) <- createCharacter True roomMap charMap
    putStrLn "What is your name?"
    name <- getLine
-   let (Just (char, pos)) = Map.lookup id tempMap
+   let (Just (char, pos)) = Map.lookup newID tempMap
    let player = Cha.setPlayerCharacter True . Cha.changeName name $ char
-   let newMap = Map.insert id (player,pos) tempMap
-   return (id, newMap)
+   let newMap = Map.insert newID (player,pos) tempMap
+   return (newID, newMap)
 
 
-createItem :: Bool ->  Mov.Map -> ItemMap -> IO (Int, ItemMap)
-createItem checkForLocked roomMap itemMap = do
+createKey :: Bool -> Mov.Location -> Mov.Map -> ItemMap -> IO (Int, ItemMap)
+createKey checkForLocked (x,y) roomMap itemMap = do
    gen <- newStdGen
-   let id = head $ filter (\x -> not (Map.member x itemMap)) (randoms gen :: [Int])
+   let newID = head $ filter (\x -> not (Map.member x itemMap)) (randoms gen :: [Int])
    gen2 <- newStdGen
-   let itemID = head (randomRs (0,Cha.itemCount-2) gen :: [Int])
+   let itemID = (Mov.highBoundWE + 1) * x + y + 1 -- calculating which key to get
    let item = Cha.itemList !! itemID
    pos <- randomPosition checkForLocked roomMap
-   let newMap = Map.insert id (item, pos) itemMap
-   return (id, newMap)
+   let newMap = Map.insert newID (item, pos) itemMap
+   return (newID, newMap)
+
+generateKeys :: Bool -> Mov.Map -> ItemMap -> IO ([Int], ItemMap)
+generateKeys = do 
+   let roomList = elems roomMap
+   helper (Mov.lowBoundNS, Mov.lowBoundWE) []
+    where
+      helper (x,y) idList checkForLocked roomMap itemMap
+         | x == Mov.highBoundNS && y == Mov.highBoundWE = do
+            (newID, newItemMap) <- createKey checkForLocked (x,y) roomMap itemMap
+            return (newID:idList, newItemMap)
+         | y == Mov.highBoundWE = do
+            (newID, newItemMap) <- createKey checkForLocked (x,y) roomMap itemMap
+            helper (x+1, Mov.lowBoundWE) (newID:idList) checkForLocked roomMap newItemMap
+         | otherwise = do
+            (newID, newItemMap) <- createKey checkForLocked (x,y) roomMap itemMap
+            helper (x, y+1) (newID:idList) checkForLocked roomMap newItemMap
+      
 
 createLadder :: Bool -> Mov.Map -> ItemMap -> IO (Int, ItemMap)
 createLadder checkForLocked roomMap itemMap = do
    gen <- newStdGen
-   let id = head $ filter (\x -> not (Map.member x itemMap)) (randoms gen :: [Int])
-   gen2 <- newStdGen
+   let newID = head $ filter (\x -> not (Map.member x itemMap)) (randoms gen :: [Int])
    let item = last Cha.itemList
    pos@(_, inner, _) <- randomPosition checkForLocked roomMap
    if Mov.isWall inner
       then createLadder checkForLocked roomMap itemMap
       else do
-         let newMap = Map.insert id (item, pos) itemMap
-         return (id, newMap)
+         let newMap = Map.insert newID (item, pos) itemMap
+         return (newID, newMap)
 
 randomPosition :: Bool -> Mov.Map -> IO Mov.Position
 randomPosition checkForLocked roomMap
@@ -153,7 +166,7 @@ wallMsgs =
 
 getDoorBlockedMsg :: IO String
 getDoorBlockedMsg = do
-   newStdGen
+   _ <- newStdGen
    gen <- getStdGen
    return . (doorBlockedMsgs!!) . head $ randomRs (0, length doorBlockedMsgs - 1) gen
 
@@ -180,7 +193,7 @@ roomLockedMsgs =
 
 getWallPushMsg :: IO String
 getWallPushMsg = do
-   newStdGen
+   _ <- newStdGen
    gen <- getStdGen
    return . (wallPushMsgs!!) . head $ randomRs (0, length wallPushMsgs - 1) gen
 
@@ -195,7 +208,7 @@ hasWon :: Mov.Position -> Mov.Position -> Bool
 hasWon (room1, inner1, _) (room2, inner2, _) = room1 == room2 && inner1 == inner2
 
 emptyGame :: Mov.Map -> Game
-emptyGame map = (False, map, ((0,0),(0,0),Mov.North), 0, Map.empty, 0, Map.empty)
+emptyGame roomMap = (False, roomMap, ((0,0),(0,0),Mov.North), 0, Map.empty, 0, Map.empty)
 
 setControl :: String -> Bool
 setControl str = str == "short"
@@ -209,18 +222,16 @@ initialize = do
    let control = setControl controlStr
    roomMap <- createMap
    let empty = emptyGame roomMap
-   action "help" empty
+   _ <- action "help" empty
    (playerID, charMap1) <- createPlayer roomMap Map.empty
    let (Just (player, winPosition)) = Map.lookup playerID charMap1
    gen <- newStdGen
    let numItems = head $ randomRs (0,Mov.numRooms) gen
-   (itemID1, itemMap1) <- createItem False roomMap Map.empty
-   (itemID2, itemMap2) <- createItem False roomMap itemMap1
-   (ladderID, itemMap3) <- createLadder True roomMap itemMap2
-   let (Just (_, ladderPos)) = Map.lookup ladderID itemMap3
-   let itemMap4 = Map.insert ladderID (last Cha.itemList, ladderPos) itemMap3
+--   (itemID1, itemMap1) <- createItem False roomMap Map.empty
+--   (itemID2, itemMap2) <- createItem False roomMap itemMap1
+   (ladderID, itemMap) <- createLadder True roomMap Map.empty
    putStrLn $ "\nWell, " ++ Cha.name player ++ ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere?"
-   return (control, roomMap, winPosition, playerID, charMap1, ladderID, itemMap4)
+   return (control, roomMap, winPosition, playerID, charMap1, ladderID, itemMap)
 
 
 -- uses the module Draw to create a representation of the room's contents on the command line
@@ -368,7 +379,7 @@ drawMap (playerRoom, playerInner, playerDir) (ladderRoom, ladderInner, _) (winRo
 -- Here, we finally get to play the game!
 gameState :: Game -> IO String
 gameState game@(control, _, winPos, playerID, charMap, ladderID, itemMap) = do
-   let (Just (player, pos)) = Map.lookup playerID charMap
+   let (Just (_, pos)) = Map.lookup playerID charMap
    let (Just (_, ladderPos)) = Map.lookup ladderID itemMap
    drawMap pos ladderPos winPos
    if control
@@ -377,14 +388,14 @@ gameState game@(control, _, winPos, playerID, charMap, ladderID, itemMap) = do
          case resultUnformatted of
             (Left str) -> return str
             (Right game2) -> do
-               putStrLn . take 15 $ repeat '\n'
+               putStrLn . take 10 $ repeat '\n'
                gameState game2
       else do
          resultUnformatted <- longInput game
          case resultUnformatted of
             (Left str) -> return str
             (Right game2) -> do
-               putStrLn . take 15 $ repeat '\n'
+               putStrLn . take 10 $ repeat '\n'
                gameState game2
 
 
@@ -420,7 +431,7 @@ shortInput game = do
       'e' -> action "turn left" game
       'h' -> action "help" game
       'q' -> action "quit" game
-      key -> action "unknown" game -- there isn't actually a match for unknown, so it will just fall through to the catch-all
+      _ -> action "unknown" game -- there isn't actually a match for unknown, so it will just fall through to the catch-all
 
 
 
@@ -428,20 +439,20 @@ shortInput game = do
 action :: String -> Game -> IO (Either String Game)
 action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemMap)
    | str == "go forward" = do
-      let (Just (player, oldPos@(oldRoom, oldInner, oldDir))) = Map.lookup playerID charMap
-      let (Just (ladder, ladderPos@(ladderRoom, ladderInner, ladderDir))) = Map.lookup ladderID itemMap
+      let (Just (player, oldPos@(_, oldInner, _))) = Map.lookup playerID charMap
+      let (Just (ladder, (ladderRoom, ladderInner, ladderDir))) = Map.lookup ladderID itemMap
       let result = Mov.move oldPos Mov.Advance
       case result of
-         Left str -- the move function has caught something to be handled here
-            | str == "Wall" -> do
+         Left resStr -- the move function has caught something to be handled here
+            | resStr == "Wall" -> do
                msg <- getWallMsg
                putStrLn msg
                return $ Right oldGame
-            | str == "Door blocked" -> do
+            | resStr == "Door blocked" -> do
                msg <- getDoorBlockedMsg
                putStrLn msg
                return $ Right oldGame
-         Right newPos@(newRoom, newInner, newDir)
+         Right newPos@(newRoom, newInner, _)
             | roomMap ! newRoom -> do -- if the new room is locked, don't allow the move
                msg <- getRoomLockedMsg
                putStrLn msg
@@ -464,12 +475,12 @@ action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemM
             | otherwise -> do -- we're okay to move, but need to check the same things as before
                let result2 = Mov.move newPos Mov.Advance
                case result2 of
-                  Left str
-                     | str == "Wall" -> do
+                  Left resStr
+                     | resStr == "Wall" -> do
                         msg <- getWallPushMsg
                         putStrLn msg
                         return $ Right oldGame
-                     | str == "Door blocked" -> do
+                     | resStr == "Door blocked" -> do
                         msg <- getDoorBlockedMsg
                         putStrLn msg
                         return $ Right oldGame
@@ -489,9 +500,9 @@ action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemM
 -- same procedure as above, just in the other direction
    | str == "go back" = do
       (Right tempGame1) <- action "turn around" oldGame
-      tempGame2 <- action "go forward" tempGame1
-      case tempGame2 of
-         Left str -> return $ Left str
+      tempGameRes <- action "go forward" tempGame1
+      case tempGameRes of
+         Left resStr -> return $ Left resStr
          Right tempGame2 -> action "turn around" tempGame2
 --
 -- Now for turning:
@@ -514,13 +525,13 @@ action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemM
       (Right tempGame1) <- action "turn left" oldGame
       tempResult2 <- action "go forward" tempGame1
       case tempResult2 of
-         Left str -> return $ Left str
+         Left resStr -> return $ Left resStr
          (Right tempGame2) -> action "turn right" tempGame2
    | str == "go right" = do
       (Right tempGame1) <- action "turn right" oldGame
       tempResult2 <- action "go forward" tempGame1
       case tempResult2 of
-         Left str -> return $ Left str
+         Left resStr -> return $ Left resStr
          (Right tempGame2) -> action "turn left" tempGame2
 --
 -- Getting a list of commands:
@@ -549,7 +560,7 @@ action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemM
 
 
 
-
+main :: IO ()
 main = do
    game@(_, roomMap, _, _, _, _, _) <- initialize
    putStrLn $ "Which rooms are locked (True) and which aren't (False)\n" ++ show roomMap ++ "\n"

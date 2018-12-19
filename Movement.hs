@@ -1,6 +1,7 @@
 module Movement where
 
 import Data.Array
+import System.Random
 
 
 
@@ -10,10 +11,12 @@ roomSize :: Int
 roomSize = 7
 
 leftDoorCoord :: Int
-leftDoorCoord = floor (fromIntegral roomSize / 2)
+leftDoorCoord = floor (fromIntegral roomSize / 2 :: Double)
 
 rightDoorCoord :: Int
-rightDoorCoord = ceiling (fromIntegral roomSize / 2)
+rightDoorCoord = ceiling (fromIntegral roomSize / 2 :: Double)
+
+numRooms :: Int
 numRooms = ( highBoundNS - lowBoundNS + 1 ) * ( highBoundWE - lowBoundWE + 1)
 
 lowBoundNS :: Int
@@ -50,6 +53,11 @@ isWall (x,y)
 
 data Direction = North | West | South | East
    deriving (Show, Read, Eq, Ord, Enum)
+
+-- making Directions an instance of Random
+instance Random Direction where
+   randomR (low, high) gen = (toEnum . fst $ randomR (fromEnum low, fromEnum high) gen, snd $ randomR (fromEnum low, fromEnum high) gen)
+   random = randomR (North, East)
 
 
 data Movement = Advance | TurnLeft | BackOff | TurnRight
