@@ -8,15 +8,14 @@ import qualified Movement as Mov
 import qualified Character as Cha
 import qualified Draw
 
-{- making Pairs an instance of Random
-   taken from https://stackoverflow.com/questions/26674929/haskell-no-instance-for-random-point-arising-from-a-use-of-genrandom -}
+-- making Pairs an instance of Random
 instance (Random x, Random y) => Random (x, y) where
-   randomR ((lo_x, lo_y), (hi_x, hi_y)) g = ((rand_x, rand_y), g'')
-      where (rand_x, g')  = randomR (lo_x, hi_x) g
-            (rand_y, g'') = randomR (lo_y, hi_y) g'
-   random g = ((rand_x, rand_y), g'')
-      where (rand_x, g') = random g
-            (rand_y, g'') = random g'
+   randomR ((lowX, lowY), (highX, highY)) gen = ((randX, randY), gen'')
+      where (randX, gen')  = randomR (lowX, highX) gen
+            (randY, gen'') = randomR (lowY, highY) gen'
+   random gen = ((randX, randY), gen'')
+      where (randX, gen') = random gen
+            (randY, gen'') = random gen'
 
 -- making Directions an instance of Random
 instance Random Mov.Direction where
@@ -25,8 +24,7 @@ instance Random Mov.Direction where
 
 
 
-{- creates weighted random lists
-   taken from https://stackoverflow.com/questions/8785577/generating-random-integers-with-given-probabilities -}
+-- creates weighted random lists to create a map where comparatively few rooms are locked
 weightedList :: RandomGen g => g -> [(a, Rational)] -> [a]
 weightedList gen weightList = evalRand m gen
    where m = sequence . repeat . fromList $ weightList
@@ -93,7 +91,7 @@ randomPosition checkForLocked roomMap
       gen2 <- newStdGen
       let innerLoc = head $ randomRs ((0,0), (Mov.roomSize,Mov.roomSize)) gen2 -- get a random Mov.InnerLocation
       gen3 <- newStdGen
-      let dir = head $ randomRs (Mov.North, Mov.East) gen3 -- get a random Mov.Direction
+      let dir = head $ randoms gen3 :: Mov.Direction -- get a random Mov.Direction
       let newPos = (loc, innerLoc, dir)
       return newPos
    | otherwise = do
@@ -102,7 +100,7 @@ randomPosition checkForLocked roomMap
       gen2 <- newStdGen
       let innerLoc = head $ randomRs ((0,0), (Mov.roomSize,Mov.roomSize)) gen2 :: (Int, Int)
       gen3 <- newStdGen
-      let dir = head $ randomRs (Mov.North, Mov.East) gen3
+      let dir = head $ randoms gen3 :: Mov.Direction
       let newPos = (loc, innerLoc, dir)
       return newPos
 
@@ -110,7 +108,7 @@ randomPosition checkForLocked roomMap
 -- to sort the list that gets sent to the Draw.draw function
 isort :: [(Mov.InnerLocation, String)] -> [(Mov.InnerLocation, String)]
 isort [] = []
-isort (a : rest) = insert a (isort rest)
+isort list = foldr insert [] list
 
 insert :: (Mov.InnerLocation, String) -> [(Mov.InnerLocation, String)] -> [(Mov.InnerLocation, String)]
 insert a [] = [a]
@@ -490,7 +488,6 @@ action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemM
 --
 -- same procedure as above, just in the other direction
    | str == "go back" = do
-
       (Right tempGame1) <- action "turn around" oldGame
       tempGame2 <- action "go forward" tempGame1
       case tempGame2 of

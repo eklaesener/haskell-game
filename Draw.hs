@@ -41,10 +41,10 @@ filterDoorList [(a,b), (c,d), (e,f)] = [((x,y), door)
 
 
 player :: Direction -> String
-player North = " ⭡ "
-player East = " > "
-player South = " ⭣ "
-player West = " < "
+player North = " ⯅ "
+player East = " ⯈ "
+player South = " ⯆ "
+player West = " ⯇ "
 
 
 ladder :: String
