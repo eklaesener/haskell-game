@@ -26,7 +26,7 @@ lowBoundWE :: Int
 lowBoundWE = 0
 
 highBoundNS :: Int
-highBoundNS = 2
+highBoundNS = 3
 
 highBoundWE :: Int
 highBoundWE = 3
