@@ -8,8 +8,12 @@ data Attributes = Nil | Weapon { power :: Float
                           | Ladder
                           | Key { room :: (Int, Int) } deriving Show
 
-type Item = (Int, String, Attributes) -- reads as (internal reference, name, [possibly other attributes like power])
 
+-- reads as (internal reference, name, [possibly other attributes like power])
+type Item = (Int, String, Attributes)
+
+
+-- largely unused, only the ladder is implemented
 itemList :: [Item]
 itemList = [(1, "Key for Room (0,0)", Key (0,0))
            ,(2, "Key for Room (0,1)", Key (0,1))
@@ -26,8 +30,11 @@ itemList = [(1, "Key for Room (0,0)", Key (0,0))
            ,(13, "Escape Ladder", Ladder)
            ]
 
+
 itemCount :: Int
 itemCount = length itemList
+
+
 
 data Character = Character { name :: String
                            , hp :: Float

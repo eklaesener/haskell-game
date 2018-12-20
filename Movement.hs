@@ -72,7 +72,7 @@ type InnerLocation = (Int, Int) -- all rooms are the same size, so a simple coor
 
 type Position = (Location, InnerLocation, Direction) -- your position consists of the room you're in, your position in that room and the direction you're facing currently
 
-
+-- returns Left String if something went wrong and Right Position if the move is allowed
 move :: Position -> Movement -> Either String Position
 
 move (l, il, North) TurnRight = Right (l, il, East)
