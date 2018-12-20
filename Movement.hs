@@ -1,6 +1,7 @@
 module Movement where
 
 import Data.Array
+import System.Random
 
 
 
@@ -10,10 +11,12 @@ roomSize :: Int
 roomSize = 7
 
 leftDoorCoord :: Int
-leftDoorCoord = floor (fromIntegral roomSize / 2)
+leftDoorCoord = floor (fromIntegral roomSize / 2 :: Double)
 
 rightDoorCoord :: Int
-rightDoorCoord = ceiling (fromIntegral roomSize / 2)
+rightDoorCoord = ceiling (fromIntegral roomSize / 2 :: Double)
+
+numRooms :: Int
 numRooms = ( highBoundNS - lowBoundNS + 1 ) * ( highBoundWE - lowBoundWE + 1)
 
 lowBoundNS :: Int
@@ -23,14 +26,20 @@ lowBoundWE :: Int
 lowBoundWE = 0
 
 highBoundNS :: Int
-highBoundNS = 2
+highBoundNS = 3
 
 highBoundWE :: Int
 highBoundWE = 3
 
 -- a simple check if you're standing in front of a door
-isDoor :: InnerLocation -> Bool
-isDoor (x,y) = isWall (x,y) && ((x >= leftDoorCoord) && (x <= rightDoorCoord) || (y >= leftDoorCoord) && (y <= rightDoorCoord))
+isDoor :: Int -> Bool
+isDoor x = x >= leftDoorCoord && x <= rightDoorCoord
+
+-- also checks for a door, but unlike above, the other coordinate isn't disregarded
+isDoorFull :: InnerLocation -> Bool
+isDoorFull (x,y)
+   | isWall (x,y) && (isDoor x || isDoor y) = True
+   | otherwise = False
 
 isCorner :: InnerLocation -> Bool
 isCorner (x,y)
@@ -45,6 +54,11 @@ isWall (x,y)
 data Direction = North | West | South | East
    deriving (Show, Read, Eq, Ord, Enum)
 
+-- making Directions an instance of Random
+instance Random Direction where
+   randomR (low, high) gen = (toEnum . fst $ randomR (fromEnum low, fromEnum high) gen, snd $ randomR (fromEnum low, fromEnum high) gen)
+   random = randomR (North, East)
+
 
 data Movement = Advance | TurnLeft | BackOff | TurnRight
    deriving (Show, Eq, Enum)
@@ -58,7 +72,7 @@ type InnerLocation = (Int, Int) -- all rooms are the same size, so a simple coor
 
 type Position = (Location, InnerLocation, Direction) -- your position consists of the room you're in, your position in that room and the direction you're facing currently
 
-
+-- returns Left String if something went wrong and Right Position if the move is allowed
 move :: Position -> Movement -> Either String Position
 
 move (l, il, North) TurnRight = Right (l, il, East)
@@ -70,42 +84,42 @@ move (l, il, d) TurnLeft = Right (l, il, toEnum (fromEnum d + 1))
 
 
 move ((ns, we), (x, y), North) Advance
-   | (x == 0) && (ns == lowBoundNS) = if isDoor (x,y) then Left "Door blocked" else Left "Wall"
-   | x == 0 = if isDoor (x,y) then Right ((ns - 1, we), (roomSize, y), North) else Left "Wall"
+   | (x == 0) && (ns == lowBoundNS) = if isDoor y then Left "Door blocked" else Left "Wall"
+   | x == 0 = if isDoor y then Right ((ns - 1, we), (roomSize, y), North) else Left "Wall"
    | otherwise = Right ((ns, we), (x - 1, y), North)
 
 move ((ns, we), (x, y), West) Advance
-   | (y == 0) && (we == lowBoundWE) = if isDoor (x,y) then Left "Door blocked" else Left "Wall"
-   | y == 0 = if isDoor (x,y) then Right ((ns, we - 1), (x, roomSize), West) else Left "Wall"
+   | (y == 0) && (we == lowBoundWE) = if isDoor x then Left "Door blocked" else Left "Wall"
+   | y == 0 = if isDoor x then Right ((ns, we - 1), (x, roomSize), West) else Left "Wall"
    | otherwise = Right ((ns, we), (x, y - 1), West)
 
 move ((ns, we), (x, y), South) Advance
-   | (x == roomSize) && (ns == highBoundNS) = if isDoor (x,y) then Left "Door blocked" else Left "Wall"
-   | x == roomSize = if isDoor (x,y) then Right ((ns + 1, we), (0, y), South) else Left "Wall"
+   | (x == roomSize) && (ns == highBoundNS) = if isDoor y then Left "Door blocked" else Left "Wall"
+   | x == roomSize = if isDoor y then Right ((ns + 1, we), (0, y), South) else Left "Wall"
    | otherwise = Right ((ns, we), (x + 1, y), South)
 
 move ((ns, we), (x, y), East) Advance
-   | (y == roomSize) && (we == highBoundWE) = if isDoor (x,y) then Left "Door blocked" else Left "Wall"
-   | y == roomSize = if isDoor (x,y) then Right ((ns, we + 1), (x, 0), East) else Left "Wall"
+   | (y == roomSize) && (we == highBoundWE) = if isDoor x then Left "Door blocked" else Left "Wall"
+   | y == roomSize = if isDoor x then Right ((ns, we + 1), (x, 0), East) else Left "Wall"
    | otherwise = Right ((ns, we), (x, y + 1), East)
 
 
 move ((ns, we), (x, y), North) BackOff
-   | (x == roomSize) && (ns == highBoundNS) = if isDoor (x,y) then Left "Door blocked" else Left "Wall"
-   | x == roomSize = if isDoor (x,y) then Right ((ns + 1, we), (0, y), North) else Left "Wall"
+   | (x == roomSize) && (ns == highBoundNS) = if isDoor y then Left "Door blocked" else Left "Wall"
+   | x == roomSize = if isDoor y then Right ((ns + 1, we), (0, y), North) else Left "Wall"
    | otherwise = Right ((ns, we), (x + 1, y), North)
 
 move ((ns, we), (x, y), West) BackOff
-   | (y == roomSize) && (we == highBoundWE) = if isDoor (x,y) then Left "Door blocked" else Left "Wall"
-   | y == roomSize = if isDoor (x,y) then Right ((ns, we + 1), (x, 0), West) else Left "Wall"
+   | (y == roomSize) && (we == highBoundWE) = if isDoor x then Left "Door blocked" else Left "Wall"
+   | y == roomSize = if isDoor x then Right ((ns, we + 1), (x, 0), West) else Left "Wall"
    | otherwise = Right ((ns, we), (x, y + 1), West)
 
 move ((ns, we), (x, y), South) BackOff
-   | (x == 0) && (ns == lowBoundNS) = if isDoor (x,y) then Left "Door blocked" else Left "Wall"
-   | x == 0 = if isDoor (x,y) then Right ((ns - 1, we), (roomSize, y), South) else Left "Wall"
+   | (x == 0) && (ns == lowBoundNS) = if isDoor y then Left "Door blocked" else Left "Wall"
+   | x == 0 = if isDoor y then Right ((ns - 1, we), (roomSize, y), South) else Left "Wall"
    | otherwise = Right ((ns, we), (x - 1, y), South)
 
 move ((ns, we), (x, y), East) BackOff
-   | (y == 0) && (we == lowBoundWE) = if isDoor (x,y) then Left "Door blocked" else Left "Wall"
-   | y == 0 = if isDoor (x,y) then Right ((ns, we - 1), (x, roomSize), East) else Left "Wall"
+   | (y == 0) && (we == lowBoundWE) = if isDoor x then Left "Door blocked" else Left "Wall"
+   | y == 0 = if isDoor x then Right ((ns, we - 1), (x, roomSize), East) else Left "Wall"
    | otherwise = Right ((ns, we), (x, y - 1), East)
