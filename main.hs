@@ -165,7 +165,7 @@ wallPushMsgs :: [String]
 wallPushMsgs =
    ["Try as you might, you still can't push the ladder through the wall."
    ,"Maybe try to push the ladder through a door, not through a wall?"
-   ,"This is a wall. It has the property of not allowing big enough things to go\nthrough it. You should probably remember that."
+   ,"This is a wall. It has the property of not allowing big enough things to go\nthrough it. You should know that."
    ]
 
 
@@ -198,7 +198,8 @@ initialize = do
    gen <- newStdGen
    let numItems = head $ randomRs (0,Mov.numRooms) gen
    (ladderID, itemMap) <- createLadder True roomMap Map.empty
-   putStrLn $ "\nWell, " ++ Cha.name player ++ ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere?"
+   putStr $ "\nWell, " ++ Cha.name player
+   putStrLn ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere?"
    return (control, roomMap, winPosition, playerID, charMap, ladderID, itemMap)
 
 
@@ -514,6 +515,10 @@ action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemM
             putStrLn "e for turning left\n"
             putStrLn "h for help"
             putStrLn "q for quitting\n"
+            putStrLn "Key:\nYour position: ⯅ ⯈ ⯆ ⯇"
+            putStrLn "The doors: ▯"
+            putStrLn "The ladder: ☷"
+            putStrLn "And the cave-in: ⭙\n\n"
             return $ Right oldGame
          else do
             putStrLn "go forward"
@@ -525,6 +530,10 @@ action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemM
             putStrLn "turn left\n"
             putStrLn "help"
             putStrLn "quit\n"
+            putStrLn "Key:\nYour position: ⯅ ⯈ ⯆ ⯇"
+            putStrLn "The doors: ▯"
+            putStrLn "The ladder: ☷"
+            putStrLn "And the cave-in: ⭙\n\n"
             return $ Right oldGame
    --
    -- Quitting:
@@ -543,4 +552,5 @@ main :: IO ()
 main = do
    game <- initialize
    state <- gameState game
+   putStrLn . take 70 $ repeat '\n'
    putStrLn state
