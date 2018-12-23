@@ -1,4 +1,5 @@
 import Data.Array
+import Data.Char
 import System.IO
 import System.Exit
 import System.Random
@@ -181,13 +182,13 @@ emptyGame control roomMap = (control, roomMap, ((0,0),(0,0),Mov.North), 0, Map.e
 
 -- converts the user input to a Bool
 setControl :: String -> Bool
-setControl str = str == "short"
+setControl str = map toLower str == "short"
 
 
 -- sets the starting parameters for the game like positions and control settings
 initialize :: IO Game
 initialize = do
-   putStrLn "Do you want to use long or short controls? Enter short for short controls or anything else for long controls:"
+   putStrLn "Do you want to use long or short controls? Enter short (case insensitive) for short controls or anything else for long controls:"
    controlStr <- getLine
    let control = setControl controlStr
    roomMap <- createMap
@@ -368,8 +369,9 @@ longInput :: Game -> IO (Either String Game)
 longInput game = do
    putStrLn "What do you want to do next?\n"
    input <- getLine
+   let inputCaseIns = map toLower input
    putStrLn "\n"
-   action input game
+   action inputCaseIns game
 
 
 -- silently reads one keypress and returns it
@@ -388,7 +390,8 @@ shortInput :: Game -> IO (Either String Game)
 shortInput game = do
    input <- getKey
    putStrLn "\n"
-   case input of
+   let inputCaseIns = toLower input
+   case inputCaseIns of
       'w' -> action "go forward" game
       'd' -> action "go right" game
       's' -> action "go back" game
