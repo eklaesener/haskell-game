@@ -8,6 +8,7 @@ import qualified Data.Map.Strict as Map
 import qualified Movement as Mov
 import qualified Character as Cha
 import qualified Draw
+import qualified Item
 
 -- making Pairs an instance of Random
 instance (Random x, Random y) => Random (x, y) where
@@ -55,7 +56,7 @@ createPlayer roomMap charMap = do
    putStrLn "What is your name?"
    name <- getLine
    let (Just (char, pos)) = Map.lookup newID tempMap
-   let player = Cha.setPlayerCharacter True . Cha.changeName name $ char
+   let player = Cha.setPlayerCharacter True . Cha.setName name $ char
    let newMap = Map.insert newID (player,pos) tempMap
    return (newID, newMap)
 
@@ -65,12 +66,12 @@ createLadder :: Bool -> Mov.Map -> ItemMap -> IO (Int, ItemMap)
 createLadder checkForLocked roomMap itemMap = do
    gen <- newStdGen
    let newID = head $ filter (\x -> not (Map.member x itemMap)) (randoms gen :: [Int])
-   let item = last Cha.itemList
+   let ladder = Item.ladder
    pos@(_, inner, _) <- randomPosition checkForLocked roomMap
    if Mov.isWall inner
       then createLadder checkForLocked roomMap itemMap
       else do
-         let newMap = Map.insert newID (item, pos) itemMap
+         let newMap = Map.insert newID (ladder, pos) itemMap
          return (newID, newMap)
 
 
@@ -111,7 +112,7 @@ type Player = Int
 type CharMap = Map.Map Int (Cha.Character, Mov.Position)
 
 type Ladder = Int
-type ItemMap = Map.Map Int (Cha.Item, Mov.Position)
+type ItemMap = Map.Map Int (Item.Item, Mov.Position)
 
 type Game = (Bool, Mov.Map, Mov.Position, Player, CharMap, Ladder, ItemMap)
 
