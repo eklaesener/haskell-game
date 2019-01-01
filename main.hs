@@ -21,7 +21,19 @@ instance (Random x, Random y) => Random (x, y) where
             (randY, gen'') = random gen'
 
 
---
+
+-- defining some type synonyms for easier tracking
+type Player = Int
+type Enemys = [Int]
+type CharMap = Map.Map Int (Cha.Character, Mov.Position)
+
+type Ladder = Int
+type Items = [Int]
+type ItemMap = Map.Map Int (Item.Item, Mov.Position)
+
+type Game = (Bool, Mov.Map, Mov.Position, Player, Enemys, CharMap, Ladder, Items, ItemMap)
+
+
 
 
 -- creates weighted random lists to create a map where comparatively few rooms are locked
@@ -106,7 +118,7 @@ randomPosition :: Bool -> Mov.Map -> IO Mov.Position
 randomPosition checkForLocked roomMap
    | checkForLocked = do
       gen <- newStdGen
-      let loc = head $ filter (\x -> not (roomMap ! x)) (randomRs ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) gen :: [(Int,Int)]) -- get a random unlocked room
+      let loc = head . filter (\x -> not (roomMap ! x)) . randomRs ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) $ gen -- get a random unlocked room
       gen2 <- newStdGen
       let innerLoc = head $ randomRs ((0,0), (Mov.roomSize,Mov.roomSize)) gen2 -- get a random Mov.InnerLocation
       gen3 <- newStdGen
@@ -134,14 +146,6 @@ insert a@((x1, y1), _) (b@((x2, y2), _) : rest)
    | otherwise = a : b : rest
 
 
-type Player = Int
-type CharMap = Map.Map Int (Cha.Character, Mov.Position)
-
-type Ladder = Int
-type Items = [Int]
-type ItemMap = Map.Map Int (Item.Item, Mov.Position)
-
-type Game = (Bool, Mov.Map, Mov.Position, Player, CharMap, Ladder, Items, ItemMap)
 
 
 getWallMsg :: IO String
@@ -205,12 +209,16 @@ hasWon (room1, inner1, _) (room2, inner2, _) = room1 == room2 && inner1 == inner
 
 -- creates an empty Game so action "help" can be run
 emptyGame :: Bool -> Mov.Map -> Game
-emptyGame control roomMap = (control, roomMap, ((0,0),(0,0),Mov.North), 0, Map.empty, 0, [], Map.empty)
+emptyGame control roomMap = (control, roomMap, ((0,0),(0,0),Mov.North), 0, [], Map.empty, 0, [], Map.empty)
 
 
 -- converts the user input to a Bool
 setControl :: String -> Bool
 setControl str = map toLower str == "short"
+
+-- gets the control type
+getControl :: Game -> Bool
+getControl (control, _, _, _, _, _, _, _, _) = control
 
 
 -- sets the starting parameters for the game like positions and control settings
@@ -230,12 +238,12 @@ initialize = do
    (ladderID, newItemMap) <- createLadder True roomMap itemMap
    putStr $ "\nWell, " ++ Cha.name player
    putStrLn ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere?"
-   return (control, roomMap, winPosition, playerID, charMap, ladderID, itemIDs, newItemMap)
+   return (control, roomMap, winPosition, playerID, enemyIDs, charMap, ladderID, itemIDs, newItemMap)
 
 
 -- uses the module Draw to create a representation of the room's contents on the command line
 drawMap :: Game -> IO ()
-drawMap (_, roomMap, winPos@(winRoom, winInner, _), playerID, charMap, ladderID, itemIDs, itemMap) = do
+drawMap (_, roomMap, winPos@(winRoom, winInner, _), playerID, enemyIDs, charMap, ladderID, itemIDs, itemMap) = do
    let (Just (player, playerPos@(playerRoom, playerInner, playerDir))) = Map.lookup playerID charMap
    let (Just (_, ladderPos@(ladderRoom, ladderInner, _))) = Map.lookup ladderID itemMap
    let (items, itemPositions) = unzip . map fromJust . map (\x -> Map.lookup x itemMap) $ itemIDs
@@ -371,29 +379,27 @@ drawMap (_, roomMap, winPos@(winRoom, winInner, _), playerID, charMap, ladderID,
                      , not $ Mov.isDoorFull (x,y)]
          let sortedList = foldr insert list2 list1
          Draw.draw sortedList -}
-   putStrLn "Hallo"
+   putStrLn ""
 
 -- Here, we finally get to play the game!
 gameState :: Game -> IO String
-gameState game@(control, _, winPos, playerID, charMap, ladderID, itemIDs, itemMap) = do
-   let (Just (_, pos)) = Map.lookup playerID charMap
-   let (Just (_, ladderPos)) = Map.lookup ladderID itemMap
+gameState game = do
    drawMap game
-   if control
+   if getControl game
       then do
          resultUnformatted <- shortInput game
          case resultUnformatted of
             (Left str) -> return str
-            (Right game2) -> do
+            (Right newGame) -> do
                putStrLn . take 7 $ repeat '\n'
-               gameState game2
+               gameState newGame
       else do
          resultUnformatted <- longInput game
          case resultUnformatted of
             (Left str) -> return str
-            (Right game2) -> do
+            (Right newGame) -> do
                putStrLn . take 7 $ repeat '\n'
-               gameState game2
+               gameState newGame
 
 
 -- asks for user input and passes it on to the action function
@@ -439,7 +445,7 @@ shortInput game = do
 
 -- decide, if the wanted action is allowed (in the case of moves)
 action :: String -> Game -> IO (Either String Game)
-action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemIDs, itemMap)
+action str oldGame@(control, roomMap, winPos, playerID, enemyIDs, charMap, ladderID, itemIDs, itemMap)
    | str == "go forward" = do
       let (Just (player, oldPos@(_, oldInner, _))) = Map.lookup playerID charMap
       let (Just (ladder, (ladderRoom, ladderInner, ladderDir))) = Map.lookup ladderID itemMap
@@ -461,7 +467,7 @@ action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemI
                return $ Right oldGame
             | newRoom /= ladderRoom || newInner /= ladderInner -> do -- we won't collide with the ladder, so everything is alright
                let newCharMap = Map.insert playerID (player, newPos) charMap
-               return $ Right (control, roomMap, winPos, playerID, newCharMap, ladderID, itemIDs, itemMap)
+               return $ Right (control, roomMap, winPos, playerID, enemyIDs, newCharMap, ladderID, itemIDs, itemMap)
             | Mov.isWall oldInner || not (Mov.isWall newInner) -> do
                -- we know that the push can't go wrong, so we don't need case
                let (Right newLadderPos@(newLadderRoom, newLadderInner, _)) = Mov.move newPos Mov.Advance
@@ -473,7 +479,7 @@ action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemI
                         -- update ladder and player positions and return them
                         let newItemMap = Map.insert ladderID (ladder, (newLadderRoom, newLadderInner, ladderDir)) itemMap
                         let newCharMap = Map.insert playerID (player, newPos) charMap
-                        return $ Right (control, roomMap, winPos, playerID, newCharMap, ladderID, itemIDs, newItemMap)
+                        return $ Right (control, roomMap, winPos, playerID, enemyIDs, newCharMap, ladderID, itemIDs, newItemMap)
             | otherwise -> do -- we're okay to move, but need to check the same things as before
                let result2 = Mov.move newPos Mov.Advance
                case result2 of
@@ -497,7 +503,7 @@ action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemI
                         -- update ladder and player positions and return them
                         let newItemMap = Map.insert ladderID (ladder, (newLadderRoom, newLadderInner, ladderDir)) itemMap
                         let newCharMap = Map.insert playerID (player, newPos) charMap
-                        return $ Right (control, roomMap, winPos, playerID, newCharMap, ladderID, itemIDs, newItemMap)
+                        return $ Right (control, roomMap, winPos, playerID, enemyIDs, newCharMap, ladderID, itemIDs, newItemMap)
    --
    -- turns around, goes forward, then turns around again if we didn't win or lose
    | str == "go back" = do
@@ -512,12 +518,12 @@ action str oldGame@(control, roomMap, winPos, playerID, charMap, ladderID, itemI
       let (Just (player, oldPos)) = Map.lookup playerID charMap
       let (Right newPos) = Mov.move oldPos Mov.TurnLeft
       let newCharMap = Map.insert playerID (player, newPos) charMap
-      return $ Right (control, roomMap, winPos, playerID, newCharMap, ladderID, itemIDs, itemMap)
+      return $ Right (control, roomMap, winPos, playerID, enemyIDs, newCharMap, ladderID, itemIDs, itemMap)
    | str == "turn right" = do
       let (Just (player, oldPos)) = Map.lookup playerID charMap
       let (Right newPos) = Mov.move oldPos Mov.TurnRight
       let newCharMap = Map.insert playerID (player, newPos) charMap
-      return $ Right (control, roomMap, winPos, playerID, newCharMap, ladderID, itemIDs, itemMap)
+      return $ Right (control, roomMap, winPos, playerID, enemyIDs, newCharMap, ladderID, itemIDs, itemMap)
    | str == "turn around" = do
       (Right tempGame) <- action "turn left" oldGame
       action "turn left" tempGame
