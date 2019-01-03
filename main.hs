@@ -235,23 +235,19 @@ initialize = do
    roomMap <- createMap
    let empty = emptyGame control roomMap
    action "help" empty
-   (playerID, charMap) <- createPlayer roomMap Map.empty
-   let (Just (player, winPosition)) = Map.lookup playerID charMap
+   playerWithPos@(player, winPosition) <- createPlayer roomMap
    gen <- newStdGen
    let numItems = head $ randomRs (0,Mov.numRooms) gen
-   (itemIDs, itemMap) <- createItems numItems False roomMap Map.empty []
-   (ladderID, newItemMap) <- createLadder True roomMap itemMap
+   items <- createItems numItems False roomMap []
+   ladderWithPos <- createLadder True roomMap
    putStr $ "\nWell, " ++ Cha.name player
    putStrLn ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere?"
-   return (control, roomMap, winPosition, playerID, enemyIDs, charMap, ladderID, itemIDs, newItemMap)
+   return (control, roomMap, winPosition, playerWithPos, enemys, ladderWithPos, items)
 
 
 -- uses the module Draw to create a representation of the room's contents on the command line
 drawMap :: Game -> IO ()
-drawMap (_, roomMap, winPos@(winRoom, winInner, _), playerID, enemyIDs, charMap, ladderID, itemIDs, itemMap) = do
-   let (Just (player, playerPos@(playerRoom, playerInner, playerDir))) = Map.lookup playerID charMap
-   let (Just (_, ladderPos@(ladderRoom, ladderInner, _))) = Map.lookup ladderID itemMap
-   let (items, itemPositions) = unzip . map fromJust . map (\x -> Map.lookup x itemMap) $ itemIDs
+drawMap (_, roomMap, winPos@(winRoom, winInner, _), (player, (playerRoom, playerInner, playerDir)), enemyList, (_, (ladderRoom, ladderInner, _)), itemList) = do
    -- both the ladder and the win position are in the current room and thus need to be displayed
    {-| playerRoom == ladderRoom && playerRoom == winRoom = if playerInner == winInner
       -- the player should always take priority if his position and the win position clash
@@ -450,11 +446,9 @@ shortInput game = do
 
 -- decide, if the wanted action is allowed (in the case of moves)
 action :: String -> Game -> IO (Either String Game)
-action str oldGame@(control, roomMap, winPos, playerID, enemyIDs, charMap, ladderID, itemIDs, itemMap)
+action str oldGame@(control, roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerInner, _)), enemyList, (ladder, oldLadderPos@(ladderRoom, ladderInner, ladderDir)), itemList)
    | str == "go forward" = do
-      let (Just (player, oldPos@(_, oldInner, _))) = Map.lookup playerID charMap
-      let (Just (ladder, (ladderRoom, ladderInner, ladderDir))) = Map.lookup ladderID itemMap
-      let result = Mov.move oldPos Mov.Advance
+      let result = Mov.move oldPlayerPos Mov.Advance
       case result of
          Left resStr -- the move function has caught something to be handled here
             | resStr == "Wall" -> do
@@ -465,28 +459,25 @@ action str oldGame@(control, roomMap, winPos, playerID, enemyIDs, charMap, ladde
                msg <- getDoorBlockedMsg
                putStrLn msg
                return $ Right oldGame
-         Right newPos@(newRoom, newInner, _)
-            | roomMap ! newRoom -> do -- if the new room is locked, don't allow the move
+         Right newPlayerPos@(newPlayerRoom, newPlayerInner, _)
+            | roomMap ! newPlayerRoom -> do -- if the new room is locked, don't allow the move
                msg <- getRoomLockedMsg
                putStrLn msg
                return $ Right oldGame
-            | newRoom /= ladderRoom || newInner /= ladderInner -> do -- we won't collide with the ladder, so everything is alright
-               let newCharMap = Map.insert playerID (player, newPos) charMap
-               return $ Right (control, roomMap, winPos, playerID, enemyIDs, newCharMap, ladderID, itemIDs, itemMap)
-            | Mov.isWall oldInner || not (Mov.isWall newInner) -> do
+            | newPlayerRoom /= ladderRoom || newPlayerInner /= ladderInner -> do -- we won't collide with the ladder, so everything is alright
+               return $ Right (control, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+            | Mov.isWall oldPlayerInner || not (Mov.isWall newPlayerInner) -> do
                -- we know that the push can't go wrong, so we don't need case
-               let (Right newLadderPos@(newLadderRoom, newLadderInner, _)) = Mov.move newPos Mov.Advance
+               let (Right newLadderPos@(newLadderRoom, newLadderInner, _)) = Mov.move newPlayerPos Mov.Advance
                if hasWon newLadderPos winPos
                   then return $ Left "You've finally gotten out of the caverns! Though you probably shouldn't explore caves like this one anymore...\n\n"
                   else if Mov.isCorner newLadderInner
                      then return $ Left "Idiot! You've maneuvered the ladder into an unrecoverable location. Guess you're not going to escape this cavern after all...\n\n"
                      else do
                         -- update ladder and player positions and return them
-                        let newItemMap = Map.insert ladderID (ladder, (newLadderRoom, newLadderInner, ladderDir)) itemMap
-                        let newCharMap = Map.insert playerID (player, newPos) charMap
-                        return $ Right (control, roomMap, winPos, playerID, enemyIDs, newCharMap, ladderID, itemIDs, newItemMap)
+                        return $ Right (control, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemList)
             | otherwise -> do -- we're okay to move, but need to check the same things as before
-               let result2 = Mov.move newPos Mov.Advance
+               let result2 = Mov.move newPlayerPos Mov.Advance
                case result2 of
                   Left resStr
                      | resStr == "Wall" -> do
@@ -506,9 +497,7 @@ action str oldGame@(control, roomMap, winPos, playerID, enemyIDs, charMap, ladde
                      | Mov.isCorner newLadderInner -> return $ Left "Idiot! You've maneuvered the ladder into an unrecoverable location. Guess you're not going to escape this cavern after all...\n\n"
                      | otherwise -> do
                         -- update ladder and player positions and return them
-                        let newItemMap = Map.insert ladderID (ladder, (newLadderRoom, newLadderInner, ladderDir)) itemMap
-                        let newCharMap = Map.insert playerID (player, newPos) charMap
-                        return $ Right (control, roomMap, winPos, playerID, enemyIDs, newCharMap, ladderID, itemIDs, newItemMap)
+                        return $ Right (control, roomMap, winPos, (player, newPlayerPos), enemyIDs, newCharMap, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemList)
    --
    -- turns around, goes forward, then turns around again if we didn't win or lose
    | str == "go back" = do
@@ -520,15 +509,11 @@ action str oldGame@(control, roomMap, winPos, playerID, enemyIDs, charMap, ladde
    --
    -- Now for turning:
    | str == "turn left" = do
-      let (Just (player, oldPos)) = Map.lookup playerID charMap
-      let (Right newPos) = Mov.move oldPos Mov.TurnLeft
-      let newCharMap = Map.insert playerID (player, newPos) charMap
-      return $ Right (control, roomMap, winPos, playerID, enemyIDs, newCharMap, ladderID, itemIDs, itemMap)
+      let (Right newPlayerPos) = Mov.move oldPlayerPos Mov.TurnLeft
+      return $ Right (control, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
    | str == "turn right" = do
-      let (Just (player, oldPos)) = Map.lookup playerID charMap
-      let (Right newPos) = Mov.move oldPos Mov.TurnRight
-      let newCharMap = Map.insert playerID (player, newPos) charMap
-      return $ Right (control, roomMap, winPos, playerID, enemyIDs, newCharMap, ladderID, itemIDs, itemMap)
+      let (Right newPlayerPos) = Mov.move oldPlayerPos Mov.TurnRight
+      return $ Right (control, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
    | str == "turn around" = do
       (Right tempGame) <- action "turn left" oldGame
       action "turn left" tempGame
