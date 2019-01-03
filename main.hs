@@ -5,7 +5,6 @@ import System.IO
 import System.Exit
 import System.Random
 import qualified Control.Monad.Random as Rand
-import qualified Data.Map.Strict as Map
 import qualified Movement as Mov
 import qualified Character as Cha
 import qualified Draw
@@ -23,15 +22,15 @@ instance (Random x, Random y) => Random (x, y) where
 
 
 -- defining some type synonyms for easier tracking
-type Player = Int
-type Enemys = [Int]
-type CharMap = Map.Map Int (Cha.Character, Mov.Position)
+type Character = (Cha.Character, Mov.Position)
+type Player = Character
+type Enemys = [Character]
 
-type Ladder = Int
-type Items = [Int]
-type ItemMap = Map.Map Int (Item.Item, Mov.Position)
+type Item = (Item.Item, Mov.Position)
+type Ladder = Item
+type Items = [Item]
 
-type Game = (Bool, Mov.Map, Mov.Position, Player, Enemys, CharMap, Ladder, Items, ItemMap)
+type Game = (Bool, Mov.Map, Mov.Position, Player, Enemys, Ladder, Items)
 
 
 
@@ -51,66 +50,55 @@ createMap = do
    return (listArray ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) randomBools)
 
 
--- creates an empty character with a unique ID - that's why we have to pass that map around!
-createCharacter :: Bool -> Mov.Map -> CharMap -> IO (Int, CharMap)
-createCharacter checkForLocked roomMap charMap = do
-   gen <- newStdGen
-   let newID = head $ filter (\x -> not (Map.member x charMap)) (randoms gen :: [Int])
-   let char = Cha.Character "" 100 False []
+-- creates a new character
+createCharacter :: Bool -> Mov.Map -> IO Character
+createCharacter checkForLocked roomMap = do
+   name <- getCharacterName
+   let char = Cha.Character name 100 False []
    pos <- randomPosition checkForLocked roomMap
-   let newMap = Map.insert newID (char,pos) charMap
-   return (newID, newMap)
+   return (char, pos)
 
 
 -- creates a new player character
-createPlayer :: Mov.Map -> CharMap -> IO (Int, CharMap)
-createPlayer roomMap charMap = do
-   (newID, tempMap) <- createCharacter True roomMap charMap
+createPlayer :: Mov.Map -> IO Player
+createPlayer roomMap = do
+   (char, pos) <- createCharacter True roomMap
    putStrLn "What is your name?"
    name <- getLine
-   let (Just (char, pos)) = Map.lookup newID tempMap
    let player = Cha.setPlayerCharacter True . Cha.setName name $ char
-   let newMap = Map.insert newID (player,pos) tempMap
-   return (newID, newMap)
+   return (player, pos)
 
 
 -- creates a new, random item that isn't a ladder
-createItem :: Bool -> Mov.Map -> ItemMap -> IO (Int, ItemMap)
-createItem checkForLocked roomMap itemMap = do
+createItem :: Bool -> Mov.Map -> IO Item
+createItem checkForLocked roomMap = do
    gen <- newStdGen
-   let newID = head $ filter (\x -> not (Map.member x itemMap)) (randoms gen :: [Int])
-   gen2 <- newStdGen
-   let item = (Item.invItemList!!) . head $ randomRs (0, length Item.invItemList - 1) gen2
+   let item = (Item.invItemList!!) . head $ randomRs (0, length Item.invItemList - 1) gen
    pos <- randomPosition checkForLocked roomMap
-   let newMap = Map.insert newID (item, pos) itemMap
-   return (newID, newMap)
+   return (item, pos)
 
 -- creates a list of new items with length n
-createItems :: (Num a, Ord a) => a -> Bool -> Mov.Map -> ItemMap -> [Int] -> IO ([Int], ItemMap)
-createItems n checkForLocked roomMap itemMap ids
-   | n < 0 = errorWithoutStackTrace "Negative value for n"
-   | n == 0 = return (ids, itemMap)
+createItems :: (Num a, Ord a) => a -> Bool -> Mov.Map -> Items -> IO Items
+createItems n checkForLocked roomMap items
+   | n < 0 = error "Negative value for n"
+   | n == 0 = return items
    | n == 1 = do
-      (newID, newMap) <- createItem checkForLocked roomMap itemMap
-      return (newID : ids, newMap)
+      itemWithPos <- createItem checkForLocked roomMap
+      return $ itemWithPos : items
    | otherwise = do
-      (newID, newMap) <- createItem checkForLocked roomMap itemMap
-      createItems (n - 1) checkForLocked roomMap newMap (newID : ids)
+      itemWithPos <- createItem checkForLocked roomMap
+      createItems (n - 1) checkForLocked roomMap (itemWithPos : items)
 
 
 
--- creates a ladder
-createLadder :: Bool -> Mov.Map -> ItemMap -> IO (Int, ItemMap)
-createLadder checkForLocked roomMap itemMap = do
-   gen <- newStdGen
-   let newID = head $ filter (\x -> not (Map.member x itemMap)) (randoms gen :: [Int])
+-- creates a ladder, takes care not to spawn it at the edges of the rooms
+createLadder :: Bool -> Mov.Map -> IO Item
+createLadder checkForLocked roomMap = do
    let ladder = Item.ladder
    pos@(_, inner, _) <- randomPosition checkForLocked roomMap
    if Mov.isWall inner
-      then createLadder checkForLocked roomMap itemMap
-      else do
-         let newMap = Map.insert newID (ladder, pos) itemMap
-         return (newID, newMap)
+      then createLadder checkForLocked roomMap
+      else return (ladder, pos)
 
 
 -- creates a random position, possibly disallowing locked rooms
@@ -146,6 +134,23 @@ insert a@((x1, y1), _) (b@((x2, y2), _) : rest)
    | otherwise = a : b : rest
 
 
+
+
+
+getCharacterName :: IO String
+getCharacterName = do
+   gen <- newStdGen
+   return . (characterNames!!) . head $ randomRs (0, length characterNames - 1) gen
+
+characterNames :: [String
+characterNames =
+   ["Bernard"
+   ,"Herbert"
+   ,"Howard"
+   ,"John"
+   ,"Mick"
+   ,"Richard"
+   ]
 
 
 getWallMsg :: IO String
@@ -209,7 +214,7 @@ hasWon (room1, inner1, _) (room2, inner2, _) = room1 == room2 && inner1 == inner
 
 -- creates an empty Game so action "help" can be run
 emptyGame :: Bool -> Mov.Map -> Game
-emptyGame control roomMap = (control, roomMap, ((0,0),(0,0),Mov.North), 0, [], Map.empty, 0, [], Map.empty)
+emptyGame control roomMap = (control, roomMap, Mov.nullPosition, (Cha.Null, Mov.nullPosition), [], (("", False, Item.Nil), Mov.nullPosition, [])
 
 
 -- converts the user input to a Bool

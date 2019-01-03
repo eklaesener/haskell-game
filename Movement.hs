@@ -5,6 +5,29 @@ import System.Random
 
 
 
+data Direction = North | West | South | East
+   deriving (Show, Read, Eq, Ord, Enum)
+
+-- making Directions an instance of Random
+instance Random Direction where
+   randomR (low, high) gen = (toEnum . fst $ randomR (fromEnum low, fromEnum high) gen, snd $ randomR (fromEnum low, fromEnum high) gen)
+   random = randomR (North, East)
+
+
+data Movement = Advance | TurnLeft | BackOff | TurnRight
+   deriving (Show, Eq, Enum)
+
+
+type Location = (Int, Int) -- which room you're in, numbers are the same as the index of the specific room
+
+type Map = Array (Int, Int) Bool -- a representation of the actual room map
+
+type InnerLocation = (Int, Int) -- all rooms are the same size, so a simple coordinate pair from 0 to roomSize will suffice
+
+type Position = (Location, InnerLocation, Direction) -- your position consists of the room you're in, your position in that room and the direction you're facing currently
+
+
+
 
 -- naming some values so, if necessary, changing them afterwards is easier
 roomSize :: Int
@@ -41,36 +64,24 @@ isDoorFull (x,y)
    | isWall (x,y) && (isDoor x || isDoor y) = True
    | otherwise = False
 
+-- Are you standing in a corner?
 isCorner :: InnerLocation -> Bool
 isCorner (x,y)
    | (x == 0 || x == roomSize) && (y == 0 || y == roomSize) = True
    | otherwise = False
 
+-- Are you standing in front of a wall or door?
 isWall :: InnerLocation -> Bool
 isWall (x,y)
    | x == 0 || y == 0 || x == roomSize || y == roomSize = True
    | otherwise = False
 
-data Direction = North | West | South | East
-   deriving (Show, Read, Eq, Ord, Enum)
 
--- making Directions an instance of Random
-instance Random Direction where
-   randomR (low, high) gen = (toEnum . fst $ randomR (fromEnum low, fromEnum high) gen, snd $ randomR (fromEnum low, fromEnum high) gen)
-   random = randomR (North, East)
+-- the most basic position, for when positions need to be available before they are known
+nullPosition :: Position
+nullPosition = ((0,0), (0,0), North)
 
 
-data Movement = Advance | TurnLeft | BackOff | TurnRight
-   deriving (Show, Eq, Enum)
-
-
-type Location = (Int, Int) -- which room you're in, numbers are the same as the index of the specific room
-
-type Map = Array (Int, Int) Bool -- a representation of the actual room map
-
-type InnerLocation = (Int, Int) -- all rooms are the same size, so a simple coordinate pair from 0 to roomSize will suffice
-
-type Position = (Location, InnerLocation, Direction) -- your position consists of the room you're in, your position in that room and the direction you're facing currently
 
 -- returns Left String if something went wrong and Right Position if the move is allowed
 move :: Position -> Movement -> Either String Position

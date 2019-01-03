@@ -4,7 +4,8 @@ import qualified Item
 
 type Inventory = [Item.Item]
 
-data Character = Character { name :: String
+data Character = Null
+               | Character { name :: String
                            , hp :: Float
                            , pc :: Bool
                            , items :: Inventory
