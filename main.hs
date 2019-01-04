@@ -24,13 +24,13 @@ instance (Random x, Random y) => Random (x, y) where
 -- defining some type synonyms for easier tracking
 type Character = (Cha.Character, Mov.Position)
 type Player = Character
-type Enemys = [Character]
+type Enemies = [Character]
 
 type Item = (Item.Item, Mov.Position)
 type Ladder = Item
 type Items = [Item]
 
-type Game = (Bool, Mov.Map, Mov.Position, Player, Enemys, Ladder, Items)
+type Game = (Bool, Mov.Map, Mov.Position, Player, Enemies, Ladder, Items)
 
 
 
@@ -58,6 +58,18 @@ createCharacter checkForLocked roomMap = do
    pos <- randomPosition checkForLocked roomMap
    return (char, pos)
 
+-- creates a list of new enemies with length n
+createEnemies :: (Num a, Ord a) => a -> Bool -> Mov.Map -> Enemies -> IO Enemies
+createEnemies n checkForLocked roomMap enemies
+   | n < 0 = error $ "Negative value for n: " ++ show n
+   | n == 0 = return enemies
+   | n == 1 = do
+      enemyWithPos <- createCharacter checkForLocked roomMap
+      return $ enemyWithPos : enemies
+   | otherwise = do
+      enemyWithPos <- createCharacter checkForLocked roomMap
+      createEnemies (n - 1) checkForLocked roomMap (enemyWithPos : enemies)
+
 
 -- creates a new player character
 createPlayer :: Mov.Map -> IO Player
@@ -80,7 +92,7 @@ createItem checkForLocked roomMap = do
 -- creates a list of new items with length n
 createItems :: (Num a, Ord a) => a -> Bool -> Mov.Map -> Items -> IO Items
 createItems n checkForLocked roomMap items
-   | n < 0 = error "Negative value for n"
+   | n < 0 = error $ "Negative value for n: " ++ show n
    | n == 0 = return items
    | n == 1 = do
       itemWithPos <- createItem checkForLocked roomMap
@@ -245,12 +257,15 @@ initialize = do
    action "help" empty
    playerWithPos@(player, winPosition) <- createPlayer roomMap
    gen <- newStdGen
-   let numItems = head $ randomRs (0,Mov.numRooms) gen
+   gen2 <- getStdGen
+   let numEnemies = head $ randomRs (0, Mov.numRooms * 2) gen
+   enemies <- createEnemies numEnemies False roomMap []
+   let numItems = head $ randomRs (0, Mov.numRooms) gen2
    items <- createItems numItems False roomMap []
    ladderWithPos <- createLadder True roomMap
    putStr $ "\nWell, " ++ Cha.name player
    putStrLn ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere?"
-   return (control, roomMap, winPosition, playerWithPos, enemys, ladderWithPos, items)
+   return (control, roomMap, winPosition, playerWithPos, enemies, ladderWithPos, items)
 
 
 -- uses the module Draw to create a representation of the room's contents on the command line
