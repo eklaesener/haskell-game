@@ -33,7 +33,7 @@ instance Random Attributes where
               (Key _) -> 3
 
 
-   random gen = randomR (Weapon 0 0, Key (0,0)) gen
+   random = randomR (Weapon 0 0, Key (0,0))
 
 
 
