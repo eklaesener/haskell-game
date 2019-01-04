@@ -53,22 +53,26 @@ createMap = do
 -- creates a new character
 createCharacter :: Bool -> Mov.Map -> IO Character
 createCharacter checkForLocked roomMap = do
-   name <- getCharacterName
+   name <- getEnemyName
    let char = Cha.Character name 100 False []
    pos <- randomPosition checkForLocked roomMap
    return (char, pos)
 
 -- creates a list of new enemies with length n
-createEnemies :: (Num a, Ord a) => a -> Bool -> Mov.Map -> Enemies -> IO Enemies
+createEnemies :: (Num a, Ord a, Show a) => a -> Bool -> Mov.Map -> Enemies -> IO Enemies
 createEnemies n checkForLocked roomMap enemies
    | n < 0 = error $ "Negative value for n: " ++ show n
    | n == 0 = return enemies
    | n == 1 = do
-      enemyWithPos <- createCharacter checkForLocked roomMap
-      return $ enemyWithPos : enemies
+      enemyWithPos@(_, pos) <- createCharacter checkForLocked roomMap
+      if any (\(_, x) -> hasWon x pos) enemies -- checks if there already is another enemy at that position
+         then createEnemies n checkForLocked roomMap enemies
+         else return $ enemyWithPos : enemies
    | otherwise = do
-      enemyWithPos <- createCharacter checkForLocked roomMap
-      createEnemies (n - 1) checkForLocked roomMap (enemyWithPos : enemies)
+      enemyWithPos@(_, pos) <- createCharacter checkForLocked roomMap
+      if any (\(_, x) -> hasWon x pos) enemies
+         then createEnemies n checkForLocked roomMap enemies
+         else createEnemies (n - 1) checkForLocked roomMap (enemyWithPos : enemies)
 
 
 -- creates a new player character
@@ -85,21 +89,31 @@ createPlayer roomMap = do
 createItem :: Bool -> Mov.Map -> IO Item
 createItem checkForLocked roomMap = do
    gen <- newStdGen
-   let item = (Item.invItemList!!) . head $ randomRs (0, length Item.invItemList - 1) gen
-   pos <- randomPosition checkForLocked roomMap
-   return (item, pos)
+   let item@(_, _, attr) = (Item.invItemList!!) . head $ randomRs (0, length Item.invItemList - 1) gen
+   pos@(itemRoom, _, _) <- randomPosition checkForLocked roomMap
+   case attr of
+      Item.Key {Item.room = keyRoom} -- if the item is a key, some further checks are necessary
+         | itemRoom == keyRoom -> createItem checkForLocked roomMap
+         -- the key was spawned in the room that it unlocks, rendering it inaccessible
+         | not (roomMap ! keyRoom) -> createItem checkForLocked roomMap
+         -- the key is useless, because the room it unlocks already is unlocked
+      attr -> return (item, pos)
 
 -- creates a list of new items with length n
-createItems :: (Num a, Ord a) => a -> Bool -> Mov.Map -> Items -> IO Items
+createItems :: (Num a, Ord a, Show a) => a -> Bool -> Mov.Map -> Items -> IO Items
 createItems n checkForLocked roomMap items
    | n < 0 = error $ "Negative value for n: " ++ show n
    | n == 0 = return items
    | n == 1 = do
-      itemWithPos <- createItem checkForLocked roomMap
-      return $ itemWithPos : items
+      itemWithPos@(_, pos) <- createItem checkForLocked roomMap
+      if any (\(_, x) -> hasWon x pos) items -- checks if there already is another item at that position
+         then createItems n checkForLocked roomMap items
+         else return $ itemWithPos : items
    | otherwise = do
-      itemWithPos <- createItem checkForLocked roomMap
-      createItems (n - 1) checkForLocked roomMap (itemWithPos : items)
+      itemWithPos@(_, pos) <- createItem checkForLocked roomMap
+      if any (\(_, x) -> hasWon x pos) items
+         then createItems n checkForLocked roomMap items
+         else createItems (n - 1) checkForLocked roomMap (itemWithPos : items)
 
 
 
@@ -149,26 +163,26 @@ insert a@((x1, y1), _) (b@((x2, y2), _) : rest)
 
 
 
-getCharacterName :: IO String
-getCharacterName = do
+getEnemyName :: IO String
+getEnemyName = do
    gen <- newStdGen
-   return . (characterNames!!) . head $ randomRs (0, length characterNames - 1) gen
+   return . (enemyNames!!) . head $ randomRs (0, length enemyNames - 1) gen
 
-characterNames :: [String]
-characterNames =
-   ["Bernard"
-   ,"Herbert"
-   ,"Howard"
-   ,"John"
-   ,"Mick"
-   ,"Richard"
+enemyNames :: [String]
+enemyNames =
+   ["Berserker"
+   ,"Cave Troll"
+   ,"Ghoul"
+   ,"Hobgoblin"
+   ,"Orc"
+   ,"Wraith"
    ]
 
 
-getWallMsg :: IO String
-getWallMsg = do
+printWallMsg :: IO ()
+printWallMsg = do
    gen <- newStdGen
-   return . (wallMsgs!!) . head $ randomRs (0, length wallMsgs - 1) gen
+   putStrLn . (wallMsgs!!) . head $ randomRs (0, length wallMsgs - 1) gen
 
 wallMsgs :: [String]
 wallMsgs = 
@@ -178,11 +192,11 @@ wallMsgs =
    ]
 
 
-getDoorBlockedMsg :: IO String
-getDoorBlockedMsg = do
+printDoorBlockedMsg :: IO ()
+printDoorBlockedMsg = do
    _ <- newStdGen
    gen <- getStdGen
-   return . (doorBlockedMsgs!!) . head $ randomRs (0, length doorBlockedMsgs - 1) gen
+   putStrLn . (doorBlockedMsgs!!) . head $ randomRs (0, length doorBlockedMsgs - 1) gen
 
 doorBlockedMsgs :: [String]
 doorBlockedMsgs =
@@ -192,10 +206,10 @@ doorBlockedMsgs =
    ]
 
 
-getRoomLockedMsg :: IO String
-getRoomLockedMsg = do
+printRoomLockedMsg :: IO ()
+printRoomLockedMsg = do
    gen <- newStdGen
-   return . (roomLockedMsgs!!) . head $ randomRs (0, length roomLockedMsgs - 1) gen
+   putStrLn . (roomLockedMsgs!!) . head $ randomRs (0, length roomLockedMsgs - 1) gen
 
 roomLockedMsgs :: [String]
 roomLockedMsgs =
@@ -205,11 +219,11 @@ roomLockedMsgs =
    ]
 
 
-getWallPushMsg :: IO String
-getWallPushMsg = do
+printWallPushMsg :: IO ()
+printWallPushMsg = do
    _ <- newStdGen
    gen <- getStdGen
-   return . (wallPushMsgs!!) . head $ randomRs (0, length wallPushMsgs - 1) gen
+   putStrLn . (wallPushMsgs!!) . head $ randomRs (0, length wallPushMsgs - 1) gen
 
 wallPushMsgs :: [String]
 wallPushMsgs =
@@ -478,17 +492,14 @@ action str oldGame@(control, roomMap, winPos, (player, oldPlayerPos@(_, oldPlaye
       case result of
          Left resStr -- the move function has caught something to be handled here
             | resStr == "Wall" -> do
-               msg <- getWallMsg
-               putStrLn msg
+               printWallMsg
                return $ Right oldGame
             | resStr == "Door blocked" -> do
-               msg <- getDoorBlockedMsg
-               putStrLn msg
+               printDoorBlockedMsg
                return $ Right oldGame
          Right newPlayerPos@(newPlayerRoom, newPlayerInner, _)
             | roomMap ! newPlayerRoom -> do -- if the new room is locked, don't allow the move
-               msg <- getRoomLockedMsg
-               putStrLn msg
+               printRoomLockedMsg
                return $ Right oldGame
             | newPlayerRoom /= ladderRoom || newPlayerInner /= ladderInner -> return $ Right (control, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
                -- we won't collide with the ladder, so everything is alright
@@ -506,17 +517,14 @@ action str oldGame@(control, roomMap, winPos, (player, oldPlayerPos@(_, oldPlaye
                case result2 of
                   Left resStr
                      | resStr == "Wall" -> do
-                        msg <- getWallPushMsg
-                        putStrLn msg
+                        printWallPushMsg
                         return $ Right oldGame
                      | resStr == "Door blocked" -> do
-                        msg <- getDoorBlockedMsg
-                        putStrLn msg
+                        printDoorBlockedMsg
                         return $ Right oldGame
                   Right newLadderPos@(newLadderRoom, newLadderInner, _)
                      | roomMap ! newLadderRoom -> do
-                        msg <- getRoomLockedMsg
-                        putStrLn msg
+                        printRoomLockedMsg
                         return $ Right oldGame
                      | hasWon newLadderPos winPos -> return $ Left "You've finally gotten out of the caverns! Though you probably shouldn't explore caves like this one anymore...\n\n"
                      | Mov.isCorner newLadderInner -> return $ Left "Idiot! You've maneuvered the ladder into an unrecoverable location. Guess you're not going to escape this cavern after all...\n\n"
