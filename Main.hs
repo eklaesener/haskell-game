@@ -1,6 +1,6 @@
 import Data.Array
 import Data.Char (toLower)
-import Data.IORef
+import Data.Maybe
 import System.IO
 import System.Exit
 import System.Random
@@ -261,7 +261,7 @@ getControl (control, _, _, _, _, _, _) = control
 
 
 -- sets the starting parameters for the game like positions and control settings
-initialize :: IO (IORef Game)
+initialize :: IO Game
 initialize = do
    putStrLn "Do you want to use long or short controls? Enter short (case insensitive) for short controls or anything else for long controls:"
    controlStr <- getLine
@@ -279,9 +279,7 @@ initialize = do
    ladderWithPos <- createLadder True roomMap
    putStr $ "\nWell, " ++ Cha.name player
    putStrLn ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere?"
-   let game = (control, roomMap, winPosition, playerWithPos, enemies, ladderWithPos, items)
-   gameRef <- newIORef game
-   return gameRef
+   return (control, roomMap, winPosition, playerWithPos, enemies, ladderWithPos, items)
 
 
 -- uses the module Draw to create a representation of the room's contents on the command line
@@ -425,9 +423,8 @@ drawMap (_, roomMap, winPos@(winRoom, winInner, _), (player, (playerRoom, player
    putStrLn ""
 
 -- Here, we finally get to play the game!
-gameState :: IORef Game -> IO String
-gameState gameRef = do
-   game <- readIORef gameRef
+gameState :: Game -> IO String
+gameState game = do
    drawMap game
    if getControl game
       then do
@@ -436,16 +433,14 @@ gameState gameRef = do
             (Left str) -> return str
             (Right newGame) -> do
                putStrLn . take 7 $ repeat '\n'
-               atomicWriteIORef gameRef newGame
-               gameState gameRef
+               gameState newGame
       else do
          resultUnformatted <- longInput game
          case resultUnformatted of
             (Left str) -> return str
             (Right newGame) -> do
                putStrLn . take 7 $ repeat '\n'
-               atomicWriteIORef gameRef newGame
-               gameState gameRef
+               gameState newGame
 
 
 -- asks for user input and passes it on to the action function
@@ -612,7 +607,7 @@ action str oldGame@(control, roomMap, winPos, (player, oldPlayerPos@(_, oldPlaye
 
 main :: IO ()
 main = do
-   gameRef <- initialize
-   state <- gameState gameRef
+   game <- initialize
+   state <- gameState game
    putStrLn . take 70 $ repeat '\n'
    putStrLn state
