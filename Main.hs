@@ -247,7 +247,7 @@ hasWon :: Mov.Position -> Mov.Position -> Bool
 hasWon (room1, inner1, _) (room2, inner2, _) = room1 == room2 && inner1 == inner2
 
 
--- creates an empty Game so action "help" can be run
+-- creates an empty Game so playerAction "help" can be run
 emptyGame :: Mov.Map -> Game
 emptyGame roomMap = (roomMap, Mov.nullPosition, (Cha.Null, Mov.nullPosition), [], (("", False, Item.Nil), Mov.nullPosition), [])
 
@@ -260,7 +260,7 @@ initialize :: IO Game
 initialize = do
    roomMap <- createMap
    let empty = emptyGame roomMap
-   action "help" empty
+   playerAction "help" empty
    playerWithPos@(player, winPosition) <- createPlayer roomMap
    gen <- newStdGen
    gen2 <- getStdGen
@@ -276,205 +276,205 @@ initialize = do
 
 -- uses the module Draw to create a representation of the room's contents on the command line
 drawMap :: Game -> IO ()
-drawMap (_, roomMap, winPos@(winRoom, winInner, _), (player, (playerRoom, playerInner, playerDir)), enemyList, (_, (ladderRoom, ladderInner, _)), itemList) = do
+drawMap (roomMap, winPos@(winRoom, winInner, _), (player, (playerRoom, playerInner, playerDir)), enemyList, (_, (ladderRoom, ladderInner, _)), itemList) = do
    let playerHP = Cha.hp player
    let playerInv = Cha.inv player
    let equipPlayer = filter snd playerInv
-   -- both the ladder and the win position are in the current room and thus need to be displayed
-   {-| playerRoom == ladderRoom && playerRoom == winRoom = if playerInner == winInner
-      -- the player should always take priority if his position and the win position clash
-      then if Mov.isDoorFull playerInner
-         -- we don't want the door and the player to clash, so we're filtering that out
-         then do
-            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.filterDoorList [playerInner, ladderInner]
-            let list2 = [((x,y), Draw.dot) 
-                        | x <- [0 .. Mov.roomSize]
-                        , y <- [0 .. Mov.roomSize]
-                        , (x,y) /= playerInner
-                        , (x,y) /= ladderInner
-                        , not $ Mov.isDoorFull (x,y)]
-            let sortedList = foldr insert list2 list1
-            Draw.draw sortedList
-         else do
-            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.filterDoorList [ladderInner]
-            let list2 = [((x,y), Draw.dot) 
-                        | x <- [0 .. Mov.roomSize]
-                        , y <- [0 .. Mov.roomSize]
-                        , (x,y) /= playerInner
-                        , (x,y) /= ladderInner
-                        , not $ Mov.isDoorFull (x,y)]
-            let sortedList = foldr insert list2 list1
-            Draw.draw sortedList
-      else if Mov.isDoorFull playerInner
-         then do
-            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder), (winInner, Draw.win)] ++ Draw.filterDoorList [playerInner, ladderInner, winInner]
-            let list2 = [((x,y), Draw.dot)
-                        | x <- [0 .. Mov.roomSize]
-                        , y <- [0 .. Mov.roomSize]
-                        , (x,y) /= playerInner
-                        , (x,y) /= ladderInner
-                        , (x,y) /= winInner
-                        , not $ Mov.isDoorFull (x,y)]
-            let sortedList = foldr insert list2 list1
-            Draw.draw sortedList
-         else do
-            let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder), (winInner, Draw.win)] ++ Draw.filterDoorList [ladderInner, winInner]
-            let list2 = [((x,y), Draw.dot)
-                        | x <- [0 .. Mov.roomSize]
-                        , y <- [0 .. Mov.roomSize]
-                        , (x,y) /= playerInner
-                        , (x,y) /= ladderInner
-                        , (x,y) /= winInner
-                        , not $ Mov.isDoorFull (x,y)]
-            let sortedList = foldr insert list2 list1
-            Draw.draw sortedList
-   -- the win position isn't in the current room, so only the door check is necessary
-   | playerRoom == ladderRoom = if Mov.isDoorFull playerInner
-      then do
-         let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.filterDoorList [playerInner, ladderInner]
-         let list2 = [((x,y), Draw.dot)
-                     | x <- [0 .. Mov.roomSize]
-                     , y <- [0 .. Mov.roomSize]
-                     , (x,y) /= playerInner
-                     , (x,y) /= ladderInner
-                     , not $ Mov.isDoorFull (x,y)]
-         let sortedList = foldr insert list2 list1
-         Draw.draw sortedList
-      else do
-         let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.filterDoorList [ladderInner]
-         let list2 = [((x,y), Draw.dot)
-                     | x <- [0 .. Mov.roomSize]
-                     , y <- [0 .. Mov.roomSize]
-                     , (x,y) /= playerInner
-                     , (x,y) /= ladderInner
-                     , not $ Mov.isDoorFull (x,y)]
-         let sortedList = foldr insert list2 list1
-         Draw.draw sortedList
-   -- the ladder isn't in the current room, but the win position is
-   | playerRoom == winRoom = if playerInner == winInner
-      then if Mov.isDoorFull playerInner
-         then do
-            let list1 = (playerInner, Draw.player playerDir) : Draw.filterDoorList [playerInner]
-            let list2 = [((x,y), Draw.dot)
-                        | x <- [0 .. Mov.roomSize]
-                        , y <- [0 .. Mov.roomSize]
-                        , (x,y) /= playerInner
-                        , not $ Mov.isDoorFull (x,y)]
-            let sortedList = foldr insert list2 list1
-            Draw.draw sortedList
-         else do
-            let list1 = (playerInner, Draw.player playerDir) : Draw.doorList
-            let list2 = [((x,y), Draw.dot)
-                        | x <- [0 .. Mov.roomSize]
-                        , y <- [0 .. Mov.roomSize]
-                        , (x,y) /= playerInner
-                        , not $ Mov.isDoorFull (x,y)]
-            let sortedList = foldr insert list2 list1
-            Draw.draw sortedList
-      else if Mov.isDoorFull playerInner
-         then do
-            let list1 = [(playerInner, Draw.player playerDir), (winInner, Draw.win)] ++ Draw.filterDoorList [playerInner, winInner]
-            let list2 = [((x,y), Draw.dot)
-                        | x <- [0 .. Mov.roomSize]
-                        , y <- [0 .. Mov.roomSize]
-                        , (x,y) /= playerInner
-                        , (x,y) /= winInner
-                        , not $ Mov.isDoorFull (x,y)]
-            let sortedList = foldr insert list2 list1
-            Draw.draw sortedList
-         else do
-            let list1 = [(playerInner, Draw.player playerDir), (winInner, Draw.win)] ++ Draw.filterDoorList [winInner]
-            let list2 = [((x,y), Draw.dot)
-                        | x <- [0 .. Mov.roomSize]
-                        , y <- [0 .. Mov.roomSize]
-                        , (x,y) /= playerInner
-                        , (x,y) /= winInner
-                        , not $ Mov.isDoorFull (x,y)]
-            let sortedList = foldr insert list2 list1
-            Draw.draw sortedList
-   -- only the player is in the current room
-   | otherwise = if Mov.isDoorFull playerInner
-      then do
-         let list1 = (playerInner, Draw.player playerDir) : Draw.filterDoorList [playerInner]
-         let list2 = [((x,y), Draw.dot)
-                     | x <- [0 .. Mov.roomSize]
-                     , y <- [0 .. Mov.roomSize]
-                     , (x,y) /= playerInner
-                     , not $ Mov.isDoorFull (x,y)]
-         let sortedList = foldr insert list2 list1
-         Draw.draw sortedList
-      else do
-         let list1 = (playerInner, Draw.player playerDir) : Draw.doorList
-         let list2 = [((x,y), Draw.dot)
-                     | x <- [0 .. Mov.roomSize]
-                     , y <- [0 .. Mov.roomSize]
-                     , (x,y) /= playerInner
-                     , not $ Mov.isDoorFull (x,y)]
-         let sortedList = foldr insert list2 list1
-         Draw.draw sortedList -}
-   putStrLn ""
+   case () of
+      ()
+         -- both the ladder and the win position are in the current room and thus need to be displayed
+         | playerRoom == ladderRoom && playerRoom == winRoom -> if playerInner == winInner
+            -- the player should always take priority if his position and the win position clash
+            then if Mov.isDoorFull playerInner
+               -- we don't want the door and the player to clash, so we're filtering that out
+               then do
+                  let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.filterDoorList [playerInner, ladderInner]
+                  let list2 = [((x,y), Draw.dot) 
+                              | x <- [0 .. Mov.roomSize]
+                              , y <- [0 .. Mov.roomSize]
+                              , (x,y) /= playerInner
+                              , (x,y) /= ladderInner
+                              , not $ Mov.isDoorFull (x,y)]
+                  let sortedList = foldr insert list2 list1
+                  Draw.draw sortedList
+               else do
+                  let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.filterDoorList [ladderInner]
+                  let list2 = [((x,y), Draw.dot) 
+                              | x <- [0 .. Mov.roomSize]
+                              , y <- [0 .. Mov.roomSize]
+                              , (x,y) /= playerInner
+                              , (x,y) /= ladderInner
+                              , not $ Mov.isDoorFull (x,y)]
+                  let sortedList = foldr insert list2 list1
+                  Draw.draw sortedList
+            else if Mov.isDoorFull playerInner
+               then do
+                  let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder), (winInner, Draw.win)] ++ Draw.filterDoorList [playerInner, ladderInner, winInner]
+                  let list2 = [((x,y), Draw.dot)
+                              | x <- [0 .. Mov.roomSize]
+                              , y <- [0 .. Mov.roomSize]
+                              , (x,y) /= playerInner
+                              , (x,y) /= ladderInner
+                              , (x,y) /= winInner
+                              , not $ Mov.isDoorFull (x,y)]
+                  let sortedList = foldr insert list2 list1
+                  Draw.draw sortedList
+               else do
+                  let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder), (winInner, Draw.win)] ++ Draw.filterDoorList [ladderInner, winInner]
+                  let list2 = [((x,y), Draw.dot)
+                              | x <- [0 .. Mov.roomSize]
+                              , y <- [0 .. Mov.roomSize]
+                              , (x,y) /= playerInner
+                              , (x,y) /= ladderInner
+                              , (x,y) /= winInner
+                              , not $ Mov.isDoorFull (x,y)]
+                  let sortedList = foldr insert list2 list1
+                  Draw.draw sortedList
+         -- the win position isn't in the current room, so only the door check is necessary
+         | playerRoom == ladderRoom -> if Mov.isDoorFull playerInner
+            then do
+               let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.filterDoorList [playerInner, ladderInner]
+               let list2 = [((x,y), Draw.dot)
+                           | x <- [0 .. Mov.roomSize]
+                           , y <- [0 .. Mov.roomSize]
+                           , (x,y) /= playerInner
+                           , (x,y) /= ladderInner
+                           , not $ Mov.isDoorFull (x,y)]
+               let sortedList = foldr insert list2 list1
+               Draw.draw sortedList
+            else do
+               let list1 = [(playerInner, Draw.player playerDir), (ladderInner, Draw.ladder)] ++ Draw.filterDoorList [ladderInner]
+               let list2 = [((x,y), Draw.dot)
+                           | x <- [0 .. Mov.roomSize]
+                           , y <- [0 .. Mov.roomSize]
+                           , (x,y) /= playerInner
+                           , (x,y) /= ladderInner
+                           , not $ Mov.isDoorFull (x,y)]
+               let sortedList = foldr insert list2 list1
+               Draw.draw sortedList
+         -- the ladder isn't in the current room, but the win position is
+         | playerRoom == winRoom -> if playerInner == winInner
+            then if Mov.isDoorFull playerInner
+               then do
+                  let list1 = (playerInner, Draw.player playerDir) : Draw.filterDoorList [playerInner]
+                  let list2 = [((x,y), Draw.dot)
+                              | x <- [0 .. Mov.roomSize]
+                              , y <- [0 .. Mov.roomSize]
+                              , (x,y) /= playerInner
+                              , not $ Mov.isDoorFull (x,y)]
+                  let sortedList = foldr insert list2 list1
+                  Draw.draw sortedList
+               else do
+                  let list1 = (playerInner, Draw.player playerDir) : Draw.doorList
+                  let list2 = [((x,y), Draw.dot)
+                              | x <- [0 .. Mov.roomSize]
+                              , y <- [0 .. Mov.roomSize]
+                              , (x,y) /= playerInner
+                              , not $ Mov.isDoorFull (x,y)]
+                  let sortedList = foldr insert list2 list1
+                  Draw.draw sortedList
+            else if Mov.isDoorFull playerInner
+               then do
+                  let list1 = [(playerInner, Draw.player playerDir), (winInner, Draw.win)] ++ Draw.filterDoorList [playerInner, winInner]
+                  let list2 = [((x,y), Draw.dot)
+                              | x <- [0 .. Mov.roomSize]
+                              , y <- [0 .. Mov.roomSize]
+                              , (x,y) /= playerInner
+                              , (x,y) /= winInner
+                              , not $ Mov.isDoorFull (x,y)]
+                  let sortedList = foldr insert list2 list1
+                  Draw.draw sortedList
+               else do
+                  let list1 = [(playerInner, Draw.player playerDir), (winInner, Draw.win)] ++ Draw.filterDoorList [winInner]
+                  let list2 = [((x,y), Draw.dot)
+                              | x <- [0 .. Mov.roomSize]
+                              , y <- [0 .. Mov.roomSize]
+                              , (x,y) /= playerInner
+                              , (x,y) /= winInner
+                              , not $ Mov.isDoorFull (x,y)]
+                  let sortedList = foldr insert list2 list1
+                  Draw.draw sortedList
+         -- only the player is in the current room
+         | otherwise -> if Mov.isDoorFull playerInner
+            then do
+               let list1 = (playerInner, Draw.player playerDir) : Draw.filterDoorList [playerInner]
+               let list2 = [((x,y), Draw.dot)
+                           | x <- [0 .. Mov.roomSize]
+                           , y <- [0 .. Mov.roomSize]
+                           , (x,y) /= playerInner
+                           , not $ Mov.isDoorFull (x,y)]
+               let sortedList = foldr insert list2 list1
+               Draw.draw sortedList
+            else do
+               let list1 = (playerInner, Draw.player playerDir) : Draw.doorList
+               let list2 = [((x,y), Draw.dot)
+                           | x <- [0 .. Mov.roomSize]
+                           , y <- [0 .. Mov.roomSize]
+                           , (x,y) /= playerInner
+                           , not $ Mov.isDoorFull (x,y)]
+               let sortedList = foldr insert list2 list1
+               Draw.draw sortedList
 
--- Here, we finally get to play the game!
-gameState :: Game -> IO String
+-- tracks the state of the game, returns only if you've won or lost
+gameState :: Game -> IO ()
 gameState game = do
    drawMap game
-   resultUnformatted <- shortInput game
-   case resultUnformatted of
-      (Left str) -> return str
-      (Right newGame) -> do
-         putStrLn . take 7 $ repeat '\n'
-         gameState newGame
+   isNewInput <- hWaitForInput stdin 100
+   when isNewInput $ do
+      input <- getChar
+      let action = shortInput input
+      playerResultUnformatted <- playerAction action game
+      case playerResultUnformatted of
+         (Left str) -> do
+            putStrLn . take 70 $ repeat '\n'
+            putStrLn str
+         (Right newGame) -> do
+            putStrLn . take 7 $ repeat '\n'
+            gameState newGame
+   gameState game
 {-      else do
          resultUnformatted <- longInput game
          case resultUnformatted of
-            (Left str) -> return str
+            (Left str) -> return str 
             (Right newGame) -> do
                putStrLn . take 7 $ repeat '\n'
                gameState newGame
 
 
 
--- asks for user input and passes it on to the action function
+-- asks for user input and passes it on to the playerAction function
 longInput :: Game -> IO (Either String Game)
 longInput game = do
    putStrLn "What do you want to do next?\n"
    input <- getLine
    let inputCaseIns = map toLower input
    putStrLn "\n"
-   action inputCaseIns game
+   playerAction inputCaseIns game
 
 -}
 
--- silently reads one keypress and returns it
-getKey :: IO Char
-getKey = do
-   x <- getChar
-   return x
 
 
--- translates the keys into actions
-shortInput :: Game -> IO (Either String Game)
-shortInput game = do
-   input <- getKey
-   putStrLn "\n"
-   let inputCaseIns = toLower input
-   case inputCaseIns of
-      'w' -> action "go forward" game
-      'd' -> action "go right" game
-      's' -> action "go back" game
-      'a' -> action "go left" game
-      'f' -> action "turn right" game
-      'r' -> action "turn around" game
-      'e' -> action "turn left" game
-      'h' -> action "help" game
-      'q' -> action "quit" game
-      _ -> action "unknown" game -- there isn't actually a match for unknown, so it will just fall through to the catch-all
+-- translates the keys into playerAction strings
+shortInput :: Char -> String
+shortInput input = case inputCaseIns of
+      'w' -> "go forward"
+      'd' -> "go right"
+      's' -> "go back"
+      'a' -> "go left"
+      'f' -> "turn right"
+      'r' -> "turn around"
+      'e' -> "turn left"
+      'h' -> "help"
+      'q' -> "quit"
+      _ -> "unknown" -- there isn't actually a match for unknown, so it will just fall through to the catch-all
+  where inputCaseIns = toLower input
 
 
 
--- decide, if the wanted action is allowed (in the case of moves)
-action :: String -> Game -> IO (Either String Game)
-action str oldGame@(roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerInner, _)), enemyList, (ladder, oldLadderPos@(ladderRoom, ladderInner, ladderDir)), itemList)
+-- decide if the action is allowed and if it is, do it
+playerAction :: String -> Game -> IO (Either String Game)
+playerAction str oldGame@(roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerInner, _)), enemyList, (ladder, oldLadderPos@(ladderRoom, ladderInner, ladderDir)), itemList)
    | str == "go forward" = do
       let result = Mov.move oldPlayerPos Mov.Advance
       case result of
@@ -514,18 +514,18 @@ action str oldGame@(roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerInner, _
                      | roomMap ! newLadderRoom -> do
                         printRoomLockedMsg
                         return $ Right oldGame
-                     | hasWon newLadderPos winPos -> return $ Left "You've finally gotten out of the caverns! Though you probably shouldn't explore caves like this one anymore...\n\n"
-                     | Mov.isCorner newLadderInner -> return $ Left "Idiot! You've maneuvered the ladder into an unrecoverable location. Guess you're not going to escape this cavern after all...\n\n"
+                     | hasWon newLadderPos winPos -> return $ Left "You've finally gotten out of the caverns! Though you probably shouldn't explore caves like this one anymore...\n"
+                     | Mov.isCorner newLadderInner -> return $ Left "Idiot! You've maneuvered the ladder into an unrecoverable location. Guess you're not going to escape this cavern after all...\n"
                      | otherwise -> return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemList)
                        -- update ladder and player positions and return them
    --
    -- turns around, goes forward, then turns around again if we didn't win or lose
    | str == "go back" = do
-      (Right tempGame1) <- action "turn around" oldGame
-      tempGameRes <- action "go forward" tempGame1
+      (Right tempGame1) <- playerAction "turn around" oldGame
+      tempGameRes <- playerAction "go forward" tempGame1
       case tempGameRes of
          Left resStr -> return $ Left resStr
-         Right tempGame2 -> action "turn around" tempGame2
+         Right tempGame2 -> playerAction "turn around" tempGame2
    --
    -- Now for turning:
    | str == "turn left" = do
@@ -535,22 +535,22 @@ action str oldGame@(roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerInner, _
       let (Right newPlayerPos) = Mov.move oldPlayerPos Mov.TurnRight
       return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
    | str == "turn around" = do
-      (Right tempGame) <- action "turn left" oldGame
-      action "turn left" tempGame
+      (Right tempGame) <- playerAction "turn left" oldGame
+      playerAction "turn left" tempGame
    --
    -- And walking sideways:
    | str == "go left" = do
-      (Right tempGame1) <- action "turn left" oldGame
-      tempResult2 <- action "go forward" tempGame1
+      (Right tempGame1) <- playerAction "turn left" oldGame
+      tempResult2 <- playerAction "go forward" tempGame1
       case tempResult2 of
          Left resStr -> return $ Left resStr
-         (Right tempGame2) -> action "turn right" tempGame2
+         (Right tempGame2) -> playerAction "turn right" tempGame2
    | str == "go right" = do
-      (Right tempGame1) <- action "turn right" oldGame
-      tempResult2 <- action "go forward" tempGame1
+      (Right tempGame1) <- playerAction "turn right" oldGame
+      tempResult2 <- playerAction "go forward" tempGame1
       case tempResult2 of
          Left resStr -> return $ Left resStr
-         (Right tempGame2) -> action "turn left" tempGame2
+         (Right tempGame2) -> playerAction "turn left" tempGame2
    --
    -- Getting a list of commands:
    | str == "help" = do
@@ -573,7 +573,7 @@ action str oldGame@(roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerInner, _
    -- Unknown commands:
    | otherwise = do
       putStrLn "This command was not recognized!"
-      action "help" oldGame
+      playerAction "help" oldGame
 
 
 
@@ -587,5 +587,4 @@ main = do
    state <- gameState game
    hSetEcho stdin True
    hSetBuffering stdin LineBuffering
-   putStrLn . take 70 $ repeat '\n'
-   putStrLn state
+   putStr "\n"
