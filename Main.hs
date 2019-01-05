@@ -1,4 +1,4 @@
-import Data.Array
+import Data.Array (listArray, (!))
 import Data.Char (toLower)
 import System.IO
 import System.Exit (exitSuccess)
@@ -59,15 +59,15 @@ createCharacter checkForLocked roomMap = do
    return (char, pos)
 
 -- creates a list of new enemies with length n
-createEnemies :: (Num a, Ord a, Show a) => a -> Bool -> Mov.Map -> Enemies -> IO Enemies
+createEnemies :: Int -> Bool -> Mov.Map -> Enemies -> IO Enemies
 createEnemies n checkForLocked roomMap enemies
    | n < 0 = error $ "Negative value for n: " ++ show n
    | n == 0 = return enemies
-   | n == 1 = do
+{-   | n == 1 = do
       enemyWithPos@(_, pos) <- createCharacter checkForLocked roomMap
       if any (\(_, x) -> hasWon x pos) enemies -- checks if there already is another enemy at that position
          then createEnemies n checkForLocked roomMap enemies
-         else return $ enemyWithPos : enemies
+         else return $ enemyWithPos : enemies  -}
    | otherwise = do
       enemyWithPos@(_, pos) <- createCharacter checkForLocked roomMap
       if any (\(_, x) -> hasWon x pos) enemies
@@ -100,15 +100,15 @@ createItem checkForLocked roomMap = do
       attr -> return (item, pos)
 
 -- creates a list of new items with length n
-createItems :: (Num a, Ord a, Show a) => a -> Bool -> Mov.Map -> Items -> IO Items
+createItems :: Int -> Bool -> Mov.Map -> Items -> IO Items
 createItems n checkForLocked roomMap items
    | n < 0 = error $ "Negative value for n: " ++ show n
    | n == 0 = return items
-   | n == 1 = do
+{-   | n == 1 = do
       itemWithPos@(_, pos) <- createItem checkForLocked roomMap
       if any (\(_, x) -> hasWon x pos) items -- checks if there already is another item at that position
          then createItems n checkForLocked roomMap items
-         else return $ itemWithPos : items
+         else return $ itemWithPos : items  -}
    | otherwise = do
       itemWithPos@(_, pos) <- createItem checkForLocked roomMap
       if any (\(_, x) -> hasWon x pos) items
@@ -419,7 +419,7 @@ gameState :: Game -> IO String
 gameState game = do
    putStrLn . take 7 $ repeat '\n'
    drawMap game
-   isNewInput <- hWaitForInput stdin 2000
+   isNewInput <- hWaitForInput stdin 500
    if isNewInput
       then do
          input <- getChar
@@ -472,7 +472,7 @@ playerAction str oldGame@(roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerIn
             | roomMap ! newPlayerRoom -> do -- if the new room is locked, don't allow the move
                printRoomLockedMsg
                return $ Right oldGame
-            | not (any (newPlayerPos `hasWon`) (ladderPos : map snd enemyList)) -> return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+            | not (any (newPlayerPos `hasWon`) (oldLadderPos : map snd enemyList)) -> return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
                -- we won't collide with the ladder, so everything is alright
             | Mov.isWall oldPlayerInner || not (Mov.isWall newPlayerInner) -> do
                -- we know that the push can't go wrong, so we don't need case
@@ -577,13 +577,41 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
             -- checks if the obstacle is the player
             | hasWon newEnemyPos playerPos -> enemyAction "attack" (enemy, oldEnemyPos) oldGame
             | otherwise -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
+   -- these all will produce multiple entries of enemy in the enemyList, but those get filtered out by the caller
    | str == "go back" = do
       (Right tempGame1@(_, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn around" (enemy, oldEnemyPos) oldGame
       tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) tempGame1
       case tempGameRes of
          Left resStr -> return $ Left resStr
          Right tempGame2@(_, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn around" (tempEnemy, tempEnemyPos2) tempGame2
-      
+   | str == "go left" = do
+      (Right tempGame1@(_, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn left" (enemy, oldEnemyPos) oldGame
+      tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) tempGame1
+      case tempGameRes of
+         Left resStr -> return $ Left resStr
+         Right tempGame2@(_, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn right" (tempEnemy, tempEnemyPos2) tempGame2
+   | str == "go right" = do
+      (Right tempGame1@(_, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn right" (enemy, oldEnemyPos) oldGame
+      tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) tempGame1
+      case tempGameRes of
+         Left resStr -> return $ Left resStr
+         Right tempGame2@(_, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn left" (tempEnemy, tempEnemyPos2) tempGame2
+   | str == "turn left" = do
+      let (Right newEnemyPos) = Mov.move oldEnemyPos Mov.TurnLeft
+      return $ Right (roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+   | str == "turn right" = do
+      let (Right newEnemyPos) = Mov.move oldEnemyPos Mov.TurnRight
+      return $ Right (roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+   | str == "turn around" = do
+      (Right tempGame@(_, _, _, (_, tempEnemyPos) : _, _, _)) <- enemyAction "turn left" (enemy, oldEnemyPos) oldGame
+      enemyAction "turn left" (enemy, tempEnemyPos) tempGame
+   | str == "turn randomly" = do
+      gen <- newStdGen
+      let option = head . randomRs (1,3) $ gen :: Int
+      case option of
+         1 -> enemyAction "turn left" (enemy, oldEnemyPos) oldGame
+         2 -> enemyAction "turn right" (enemy, oldEnemyPos) oldGame
+         3 -> enemyAction "turn around" (enemy, oldEnemyPos) oldGame
 
 
 
