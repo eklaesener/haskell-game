@@ -25,7 +25,8 @@ instance (Random x, Random y) => Random (x, y) where
 -- defining some type synonyms for easier tracking
 type Character = (Cha.Character, Mov.Position)
 type Player = Character
-type Enemies = [Character]
+type Enemy = Character
+type Enemies = [Enemy]
 
 type Item = (Item.Item, Mov.Position)
 type Ladder = Item
@@ -431,8 +432,10 @@ gameState game = do
             putStrLn str
             cleanUp
          (Right newGame) -> do
+            -- TODO: Add Enemy actions here
             gameState newGame
    putStrLn "Kein Input"
+   -- TODO: Add Enemy actions here
    gameState game
 {-      else do
          resultUnformatted <- longInput game
@@ -491,7 +494,7 @@ playerAction str oldGame@(roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerIn
             | roomMap ! newPlayerRoom -> do -- if the new room is locked, don't allow the move
                printRoomLockedMsg
                return $ Right oldGame
-            | newPlayerRoom /= ladderRoom || newPlayerInner /= ladderInner -> return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+            | not (any (newPlayerPos `hasWon`) (ladderPos : map snd enemyList)) -> return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
                -- we won't collide with the ladder, so everything is alright
             | Mov.isWall oldPlayerInner || not (Mov.isWall newPlayerInner) -> do
                -- we know that the push can't go wrong, so we don't need case
@@ -576,6 +579,36 @@ playerAction str oldGame@(roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerIn
    | otherwise = do
       putStrLn "This command was not recognized!"
       playerAction "help" oldGame
+
+
+-- and now the possible actions for enemies
+enemyAction :: String -> Enemy -> Game -> IO (Either String Game)
+enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) oldGame@(roomMap, winPos, (player, playerPos@(playerRoom, playerInner, _)), enemyList, (ladder, ladderPos@(ladderRoom, ladderInner, _)), itemList)
+   | str == "go forward" = do -- much the same as above
+      let result = Mov.move oldEnemyPos Mov.Advance
+      case result of
+         Left resStr
+            | resStr == "Wall" -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
+            | resStr == "Door blocked" -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
+         Right newEnemyPos@(newEnemyRoom, newEnemyInner, _)
+            -- TODO: decide if enemies should be able to enter locked rooms
+            | roomMap ! newEnemyRoom -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
+            -- makes sure there isn't anything on the new position
+            | not (any (newEnemyPos `hasWon`) (ladderPos : playerPos : map snd enemyList)) -> return $
+               Right (roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+            -- checks if the obstacle is the player
+            | hasWon newEnemyPos playerPos -> enemyAction "attack" (enemy, oldEnemyPos) oldGame
+            | otherwise -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
+   | str == "go back" = do
+      (Right tempGame1@(_, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn around" (enemy, oldEnemyPos) oldGame
+      tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) tempGame1
+      case tempGameRes of
+         Left resStr -> return $ Left resStr
+         Right tempGame2@(_, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn around" (tempEnemy, tempEnemyPos2) tempGame2
+      
+
+
+
 
 
 
