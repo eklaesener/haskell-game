@@ -4,6 +4,7 @@ import Data.Maybe
 import System.IO
 import System.Exit
 import System.Random
+import Control.Monad
 import qualified Control.Monad.Random as Rand
 import qualified Movement as Mov
 import qualified Character as Cha
@@ -30,7 +31,7 @@ type Item = (Item.Item, Mov.Position)
 type Ladder = Item
 type Items = [Item]
 
-type Game = (Bool, Mov.Map, Mov.Position, Player, Enemies, Ladder, Items)
+type Game = (Mov.Map, Mov.Position, Player, Enemies, Ladder, Items)
 
 
 
@@ -247,27 +248,18 @@ hasWon (room1, inner1, _) (room2, inner2, _) = room1 == room2 && inner1 == inner
 
 
 -- creates an empty Game so action "help" can be run
-emptyGame :: Bool -> Mov.Map -> Game
-emptyGame control roomMap = (control, roomMap, Mov.nullPosition, (Cha.Null, Mov.nullPosition), [], (("", False, Item.Nil), Mov.nullPosition), [])
+emptyGame :: Mov.Map -> Game
+emptyGame roomMap = (roomMap, Mov.nullPosition, (Cha.Null, Mov.nullPosition), [], (("", False, Item.Nil), Mov.nullPosition), [])
 
 
--- converts the user input to a Bool
-setControl :: String -> Bool
-setControl str = map toLower str == "short"
 
--- gets the control type
-getControl :: Game -> Bool
-getControl (control, _, _, _, _, _, _) = control
 
 
 -- sets the starting parameters for the game like positions and control settings
 initialize :: IO Game
 initialize = do
-   putStrLn "Do you want to use long or short controls? Enter short (case insensitive) for short controls or anything else for long controls:"
-   controlStr <- getLine
-   let control = setControl controlStr
    roomMap <- createMap
-   let empty = emptyGame control roomMap
+   let empty = emptyGame roomMap
    action "help" empty
    playerWithPos@(player, winPosition) <- createPlayer roomMap
    gen <- newStdGen
@@ -279,7 +271,7 @@ initialize = do
    ladderWithPos <- createLadder True roomMap
    putStr $ "\nWell, " ++ Cha.name player
    putStrLn ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere?"
-   return (control, roomMap, winPosition, playerWithPos, enemies, ladderWithPos, items)
+   return (roomMap, winPosition, playerWithPos, enemies, ladderWithPos, items)
 
 
 -- uses the module Draw to create a representation of the room's contents on the command line
@@ -426,21 +418,20 @@ drawMap (_, roomMap, winPos@(winRoom, winInner, _), (player, (playerRoom, player
 gameState :: Game -> IO String
 gameState game = do
    drawMap game
-   if getControl game
-      then do
-         resultUnformatted <- shortInput game
-         case resultUnformatted of
-            (Left str) -> return str
-            (Right newGame) -> do
-               putStrLn . take 7 $ repeat '\n'
-               gameState newGame
-      else do
+   resultUnformatted <- shortInput game
+   case resultUnformatted of
+      (Left str) -> return str
+      (Right newGame) -> do
+         putStrLn . take 7 $ repeat '\n'
+         gameState newGame
+{-      else do
          resultUnformatted <- longInput game
          case resultUnformatted of
             (Left str) -> return str
             (Right newGame) -> do
                putStrLn . take 7 $ repeat '\n'
                gameState newGame
+
 
 
 -- asks for user input and passes it on to the action function
@@ -452,15 +443,12 @@ longInput game = do
    putStrLn "\n"
    action inputCaseIns game
 
+-}
 
 -- silently reads one keypress and returns it
 getKey :: IO Char
 getKey = do
-   hSetEcho stdin False
-   hSetBuffering stdin NoBuffering
    x <- getChar
-   hSetEcho stdin True
-   hSetBuffering stdin LineBuffering
    return x
 
 
@@ -486,7 +474,7 @@ shortInput game = do
 
 -- decide, if the wanted action is allowed (in the case of moves)
 action :: String -> Game -> IO (Either String Game)
-action str oldGame@(control, roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerInner, _)), enemyList, (ladder, oldLadderPos@(ladderRoom, ladderInner, ladderDir)), itemList)
+action str oldGame@(roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerInner, _)), enemyList, (ladder, oldLadderPos@(ladderRoom, ladderInner, ladderDir)), itemList)
    | str == "go forward" = do
       let result = Mov.move oldPlayerPos Mov.Advance
       case result of
@@ -501,7 +489,7 @@ action str oldGame@(control, roomMap, winPos, (player, oldPlayerPos@(_, oldPlaye
             | roomMap ! newPlayerRoom -> do -- if the new room is locked, don't allow the move
                printRoomLockedMsg
                return $ Right oldGame
-            | newPlayerRoom /= ladderRoom || newPlayerInner /= ladderInner -> return $ Right (control, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+            | newPlayerRoom /= ladderRoom || newPlayerInner /= ladderInner -> return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
                -- we won't collide with the ladder, so everything is alright
             | Mov.isWall oldPlayerInner || not (Mov.isWall newPlayerInner) -> do
                -- we know that the push can't go wrong, so we don't need case
@@ -510,7 +498,7 @@ action str oldGame@(control, roomMap, winPos, (player, oldPlayerPos@(_, oldPlaye
                   then return $ Left "You've finally gotten out of the caverns! Though you probably shouldn't explore caves like this one anymore...\n\n"
                   else if Mov.isCorner newLadderInner
                      then return $ Left "Idiot! You've maneuvered the ladder into an unrecoverable location. Guess you're not going to escape this cavern after all...\n\n"
-                     else return $ Right (control, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemList)
+                     else return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemList)
                            -- update ladder and player positions and return them
             | otherwise -> do -- we're okay to move, but need to check the same things as before
                let result2 = Mov.move newPlayerPos Mov.Advance
@@ -528,7 +516,7 @@ action str oldGame@(control, roomMap, winPos, (player, oldPlayerPos@(_, oldPlaye
                         return $ Right oldGame
                      | hasWon newLadderPos winPos -> return $ Left "You've finally gotten out of the caverns! Though you probably shouldn't explore caves like this one anymore...\n\n"
                      | Mov.isCorner newLadderInner -> return $ Left "Idiot! You've maneuvered the ladder into an unrecoverable location. Guess you're not going to escape this cavern after all...\n\n"
-                     | otherwise -> return $ Right (control, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemList)
+                     | otherwise -> return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemList)
                        -- update ladder and player positions and return them
    --
    -- turns around, goes forward, then turns around again if we didn't win or lose
@@ -542,10 +530,10 @@ action str oldGame@(control, roomMap, winPos, (player, oldPlayerPos@(_, oldPlaye
    -- Now for turning:
    | str == "turn left" = do
       let (Right newPlayerPos) = Mov.move oldPlayerPos Mov.TurnLeft
-      return $ Right (control, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+      return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
    | str == "turn right" = do
       let (Right newPlayerPos) = Mov.move oldPlayerPos Mov.TurnRight
-      return $ Right (control, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+      return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
    | str == "turn around" = do
       (Right tempGame) <- action "turn left" oldGame
       action "turn left" tempGame
@@ -567,31 +555,17 @@ action str oldGame@(control, roomMap, winPos, (player, oldPlayerPos@(_, oldPlaye
    -- Getting a list of commands:
    | str == "help" = do
       putStrLn "Possible commands:\n"
-      if control
-         then do
-            putStrLn "w for going forward"
-            putStrLn "d for going right"
-            putStrLn "s for going back"
-            putStrLn "a for going left\n"
-            putStrLn "f for turning right"
-            putStrLn "r for turning around"
-            putStrLn "e for turning left\n"
-            putStrLn "h for help"
-            putStrLn "q for quitting\n"
-            printKey
-            return $ Right oldGame
-         else do
-            putStrLn "go forward"
-            putStrLn "go right"
-            putStrLn "go back"
-            putStrLn "go left\n"
-            putStrLn "turn right"
-            putStrLn "turn around"
-            putStrLn "turn left\n"
-            putStrLn "help"
-            putStrLn "quit\n"
-            printKey
-            return $ Right oldGame
+      putStrLn "w for going forward"
+      putStrLn "d for going right"
+      putStrLn "s for going back"
+      putStrLn "a for going left\n"
+      putStrLn "f for turning right"
+      putStrLn "r for turning around"
+      putStrLn "e for turning left\n"
+      putStrLn "h for help"
+      putStrLn "q for quitting\n"
+      printKey
+      return $ Right oldGame
    --
    -- Quitting:
    | str == "quit" = exitSuccess
@@ -606,8 +580,12 @@ action str oldGame@(control, roomMap, winPos, (player, oldPlayerPos@(_, oldPlaye
 
 
 main :: IO ()
-main = do
+main = do 
    game <- initialize
+   hSetEcho stdin False
+   hSetBuffering stdin NoBuffering
    state <- gameState game
+   hSetEcho stdin True
+   hSetBuffering stdin LineBuffering
    putStrLn . take 70 $ repeat '\n'
    putStrLn state
