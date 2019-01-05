@@ -590,12 +590,7 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
 
 
 
-cleanUp :: IO ()
-cleanUp = do
-   hSetEcho stdin True
-   hSetBuffering stdin LineBuffering
-   putStr "\n"
-   exitSuccess
+
 
 
 
@@ -605,4 +600,7 @@ main = do
    hSetEcho stdin False
    hSetBuffering stdin NoBuffering
    state <- gameState game
-   putStrLn "This shouldn't ever be displayed"
+   hSetEcho stdin True
+   hSetBuffering stdin LineBuffering
+   putStrLn . take 70 $ repeat '\n'
+   putStrLn $ state ++ "\n"
