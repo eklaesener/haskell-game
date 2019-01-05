@@ -1,10 +1,8 @@
 import Data.Array
 import Data.Char (toLower)
-import Data.Maybe
 import System.IO
-import System.Exit
+import System.Exit (exitSuccess)
 import System.Random
-import Control.Monad
 import qualified Control.Monad.Random as Rand
 import qualified Movement as Mov
 import qualified Character as Cha
@@ -417,46 +415,26 @@ drawMap (roomMap, winPos@(winRoom, winInner, _), (player, (playerRoom, playerInn
                Draw.draw sortedList
 
 -- tracks the state of the game, returns only if you've won or lost
-gameState :: Game -> IO ()
+gameState :: Game -> IO String
 gameState game = do
    putStrLn . take 7 $ repeat '\n'
    drawMap game
    isNewInput <- hWaitForInput stdin 2000
-   when isNewInput $ do
-      input <- getChar
-      let action = shortInput input
-      playerResultUnformatted <- playerAction action game
-      case playerResultUnformatted of
-         (Left str) -> do
-            putStrLn . take 70 $ repeat '\n'
-            putStrLn str
-            cleanUp
-         (Right newGame) -> do
-            -- TODO: Add Enemy actions here
-            gameState newGame
-   putStrLn "Kein Input"
-   -- TODO: Add Enemy actions here
-   gameState game
-{-      else do
-         resultUnformatted <- longInput game
-         case resultUnformatted of
-            (Left str) -> return str 
+   if isNewInput
+      then do
+         input <- getChar
+         let action = shortInput input
+         playerResultUnformatted <- playerAction action game
+         case playerResultUnformatted of
+            (Left str) -> return str
             (Right newGame) -> do
-               putStrLn . take 7 $ repeat '\n'
+               -- TODO: Add Enemy actions here
                gameState newGame
+      else do
+         putStrLn "Kein Input"
+         -- TODO: Add Enemy actions here
+         gameState game
 
-
-
--- asks for user input and passes it on to the playerAction function
-longInput :: Game -> IO (Either String Game)
-longInput game = do
-   putStrLn "What do you want to do next?\n"
-   input <- getLine
-   let inputCaseIns = map toLower input
-   putStrLn "\n"
-   playerAction inputCaseIns game
-
--}
 
 
 
