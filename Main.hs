@@ -418,8 +418,9 @@ drawMap (roomMap, winPos@(winRoom, winInner, _), (player, (playerRoom, playerInn
 -- tracks the state of the game, returns only if you've won or lost
 gameState :: Game -> IO ()
 gameState game = do
+   putStrLn . take 7 $ repeat '\n'
    drawMap game
-   isNewInput <- hWaitForInput stdin 100
+   isNewInput <- hWaitForInput stdin 2000
    when isNewInput $ do
       input <- getChar
       let action = shortInput input
@@ -428,9 +429,10 @@ gameState game = do
          (Left str) -> do
             putStrLn . take 70 $ repeat '\n'
             putStrLn str
+            cleanUp
          (Right newGame) -> do
-            putStrLn . take 7 $ repeat '\n'
             gameState newGame
+   putStrLn "Kein Input"
    gameState game
 {-      else do
          resultUnformatted <- longInput game
@@ -577,6 +579,13 @@ playerAction str oldGame@(roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerIn
 
 
 
+cleanUp :: IO ()
+cleanUp = do
+   hSetEcho stdin True
+   hSetBuffering stdin LineBuffering
+   putStr "\n"
+   exitSuccess
+
 
 
 main :: IO ()
@@ -585,6 +594,4 @@ main = do
    hSetEcho stdin False
    hSetBuffering stdin NoBuffering
    state <- gameState game
-   hSetEcho stdin True
-   hSetBuffering stdin LineBuffering
-   putStr "\n"
+   putStrLn "This shouldn't ever be displayed"
