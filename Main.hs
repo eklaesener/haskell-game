@@ -30,7 +30,7 @@ type Item = (Item.Item, Mov.Position)
 type Ladder = Item
 type Items = [Item]
 
-type Game = (Mov.Map, Mov.Position, Player, Enemies, Ladder, Items)
+type Game = (String, Mov.Map, Mov.Position, Player, Enemies, Ladder, Items)
 
 
 
@@ -179,10 +179,10 @@ enemyNames =
    ]
 
 
-printWallMsg :: IO ()
-printWallMsg = do
+getWallMsg :: IO String
+getWallMsg = do
    gen <- newStdGen
-   putStrLn . (wallMsgs!!) . head $ randomRs (0, length wallMsgs - 1) gen
+   return . (wallMsgs!!) . head $ randomRs (0, length wallMsgs - 1) gen
 
 wallMsgs :: [String]
 wallMsgs = 
@@ -192,11 +192,11 @@ wallMsgs =
    ]
 
 
-printDoorBlockedMsg :: IO ()
-printDoorBlockedMsg = do
+getDoorBlockedMsg :: IO String
+getDoorBlockedMsg = do
    _ <- newStdGen
    gen <- getStdGen
-   putStrLn . (doorBlockedMsgs!!) . head $ randomRs (0, length doorBlockedMsgs - 1) gen
+   return . (doorBlockedMsgs!!) . head $ randomRs (0, length doorBlockedMsgs - 1) gen
 
 doorBlockedMsgs :: [String]
 doorBlockedMsgs =
@@ -206,10 +206,10 @@ doorBlockedMsgs =
    ]
 
 
-printRoomLockedMsg :: IO ()
-printRoomLockedMsg = do
+getRoomLockedMsg :: IO String
+getRoomLockedMsg = do
    gen <- newStdGen
-   putStrLn . (roomLockedMsgs!!) . head $ randomRs (0, length roomLockedMsgs - 1) gen
+   return . (roomLockedMsgs!!) . head $ randomRs (0, length roomLockedMsgs - 1) gen
 
 roomLockedMsgs :: [String]
 roomLockedMsgs =
@@ -219,11 +219,11 @@ roomLockedMsgs =
    ]
 
 
-printWallPushMsg :: IO ()
-printWallPushMsg = do
+getWallPushMsg :: IO String
+getWallPushMsg = do
    _ <- newStdGen
    gen <- getStdGen
-   putStrLn . (wallPushMsgs!!) . head $ randomRs (0, length wallPushMsgs - 1) gen
+   return . (wallPushMsgs!!) . head $ randomRs (0, length wallPushMsgs - 1) gen
 
 wallPushMsgs :: [String]
 wallPushMsgs =
@@ -233,22 +233,21 @@ wallPushMsgs =
    ]
 
 
-printKey :: IO ()
-printKey = do
-   putStrLn "Key:\nYour position: ⯅ ⯈ ⯆ ⯇"
-   putStrLn "The doors: ▯"
-   putStrLn "The ladder: ☷"
-   putStrLn "And the cave-in: ⭙\n\n"
+getMapKey :: String
+getMapKey =  "Key:\nYour position: ⯅ ⯈ ⯆ ⯇\n"
+          ++ "The doors: ▯\n"
+          ++ "The ladder: ☷\n"
+          ++ "And the cave-in: ⭙\n"
 
 
--- compares the given ladder position and win position, but disregards the direction (since it's not important here)
+-- compares the two given positions, but disregards the direction (since it's not important here)
 hasWon :: Mov.Position -> Mov.Position -> Bool
 hasWon (room1, inner1, _) (room2, inner2, _) = room1 == room2 && inner1 == inner2
 
 
 -- creates an empty Game so playerAction "help" can be run
 emptyGame :: Mov.Map -> Game
-emptyGame roomMap = (roomMap, Mov.nullPosition, (Cha.Null, Mov.nullPosition), [], (("", False, Item.Nil), Mov.nullPosition), [])
+emptyGame roomMap = ("", roomMap, Mov.nullPosition, (Cha.Null, Mov.nullPosition), [], (("", False, Item.Nil), Mov.nullPosition), [])
 
 
 
@@ -270,12 +269,12 @@ initialize = do
    ladderWithPos <- createLadder True roomMap
    putStr $ "\nWell, " ++ Cha.name player
    putStrLn ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere?"
-   return (roomMap, winPosition, playerWithPos, enemies, ladderWithPos, items)
+   return ("", roomMap, winPosition, playerWithPos, enemies, ladderWithPos, items)
 
 
 -- uses the module Draw to create a representation of the room's contents on the command line
 drawMap :: Game -> IO ()
-drawMap (roomMap, winPos@(winRoom, winInner, _), (player, (playerRoom, playerInner, playerDir)), enemyList, (_, (ladderRoom, ladderInner, _)), itemList) = do
+drawMap (narratorStr, roomMap, winPos@(winRoom, winInner, _), (player, (playerRoom, playerInner, playerDir)), enemyList, (_, (ladderRoom, ladderInner, _)), itemList) = do
    let playerHP = Cha.hp player
    let playerInv = Cha.inv player
    let equipPlayer = filter snd playerInv
@@ -457,22 +456,22 @@ shortInput input = case inputCaseIns of
 
 -- decide if the action is allowed and if it is, do it
 playerAction :: String -> Game -> IO (Either String Game)
-playerAction str oldGame@(roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerInner, _)), enemyList, (ladder, oldLadderPos@(ladderRoom, ladderInner, ladderDir)), itemList)
+playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerInner, _)), enemyList, (ladder, oldLadderPos@(ladderRoom, ladderInner, ladderDir)), itemList)
    | str == "go forward" = do
       let result = Mov.move oldPlayerPos Mov.Advance
       case result of
          Left resStr -- the move function has caught something to be handled here
             | resStr == "Wall" -> do
-               printWallMsg
-               return $ Right oldGame
+               newNaStr <- getWallMsg
+               return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
             | resStr == "Door blocked" -> do
-               printDoorBlockedMsg
-               return $ Right oldGame
+               newNaStr <- getDoorBlockedMsg
+               return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
          Right newPlayerPos@(newPlayerRoom, newPlayerInner, _)
             | roomMap ! newPlayerRoom -> do -- if the new room is locked, don't allow the move
-               printRoomLockedMsg
-               return $ Right oldGame
-            | not (any (newPlayerPos `hasWon`) (oldLadderPos : map snd enemyList)) -> return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+               newNaStr <- getRoomLockedMsg
+               return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+            | not (any (newPlayerPos `hasWon`) (oldLadderPos : map snd enemyList)) -> return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
                -- we won't collide with the ladder, so everything is alright
             | Mov.isWall oldPlayerInner || not (Mov.isWall newPlayerInner) -> do
                -- we know that the push can't go wrong, so we don't need case
@@ -481,25 +480,25 @@ playerAction str oldGame@(roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerIn
                   then return $ Left "You've finally gotten out of the caverns! Though you probably shouldn't explore caves like this one anymore...\n\n"
                   else if Mov.isCorner newLadderInner
                      then return $ Left "Idiot! You've maneuvered the ladder into an unrecoverable location. Guess you're not going to escape this cavern after all...\n\n"
-                     else return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemList)
+                     else return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemList)
                            -- update ladder and player positions and return them
             | otherwise -> do -- we're okay to move, but need to check the same things as before
                let result2 = Mov.move newPlayerPos Mov.Advance
                case result2 of
                   Left resStr
                      | resStr == "Wall" -> do
-                        printWallPushMsg
-                        return $ Right oldGame
+                        newNaStr <- getWallPushMsg
+                        return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
                      | resStr == "Door blocked" -> do
-                        printDoorBlockedMsg
-                        return $ Right oldGame
+                        newNaStr <- getDoorBlockedMsg
+                        return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
                   Right newLadderPos@(newLadderRoom, newLadderInner, _)
                      | roomMap ! newLadderRoom -> do
-                        printRoomLockedMsg
-                        return $ Right oldGame
+                        newNaStr <- getRoomLockedMsg
+                        return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
                      | hasWon newLadderPos winPos -> return $ Left "You've finally gotten out of the caverns! Though you probably shouldn't explore caves like this one anymore...\n"
                      | Mov.isCorner newLadderInner -> return $ Left "Idiot! You've maneuvered the ladder into an unrecoverable location. Guess you're not going to escape this cavern after all...\n"
-                     | otherwise -> return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemList)
+                     | otherwise -> return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemList)
                        -- update ladder and player positions and return them
    --
    -- turns around, goes forward, then turns around again if we didn't win or lose
@@ -513,10 +512,10 @@ playerAction str oldGame@(roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerIn
    -- Now for turning:
    | str == "turn left" = do
       let (Right newPlayerPos) = Mov.move oldPlayerPos Mov.TurnLeft
-      return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+      return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
    | str == "turn right" = do
       let (Right newPlayerPos) = Mov.move oldPlayerPos Mov.TurnRight
-      return $ Right (roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+      return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
    | str == "turn around" = do
       (Right tempGame) <- playerAction "turn left" oldGame
       playerAction "turn left" tempGame
@@ -534,34 +533,41 @@ playerAction str oldGame@(roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerIn
       case tempResult2 of
          Left resStr -> return $ Left resStr
          (Right tempGame2) -> playerAction "turn left" tempGame2
+   | str == "attack" = do
+      let losList = filter (\(_, pos) -> pos `Mov.inLOS` oldPlayerPos) enemyList
+      let frontList = filter (\(_, pos) -> pos `Mov.inFrontOf` oldPlayerPos) losList
+      if null losList
+         then return $ Right ("I don't see anyone standing there, do you?\n", roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+      else return $ Right ("", roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
    --
    -- Getting a list of commands:
    | str == "help" = do
-      putStrLn "Possible commands:\n"
-      putStrLn "w for going forward"
-      putStrLn "d for going right"
-      putStrLn "s for going back"
-      putStrLn "a for going left\n"
-      putStrLn "f for turning right"
-      putStrLn "r for turning around"
-      putStrLn "e for turning left\n"
-      putStrLn "h for help"
-      putStrLn "q for quitting\n"
-      printKey
-      return $ Right oldGame
+      let newNaStr =  "Possible commands:\n"
+                   ++ "w for going forward"
+                   ++ "d for going right"
+                   ++ "s for going back"
+                   ++ "a for going left\n"
+                   ++ "f for turning right"
+                   ++ "r for turning around"
+                   ++ "e for turning left\n"
+                   ++ "h for help"
+                   ++ "q for quitting\n"
+                   ++ getMapKey
+      return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
    --
    -- Quitting:
    | str == "quit" = exitSuccess
    --
    -- Unknown commands:
    | otherwise = do
-      putStrLn "This command was not recognized!"
-      playerAction "help" oldGame
+      let tempStr = "This command was not recognized!"
+      Right (tempNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList) <- playerAction "help" oldGame
+      return $ Right (tempStr ++ tempNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
 
 
 -- and now the possible actions for enemies
 enemyAction :: String -> Enemy -> Game -> IO (Either String Game)
-enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) oldGame@(roomMap, winPos, (player, playerPos@(playerRoom, playerInner, _)), enemyList, (ladder, ladderPos@(ladderRoom, ladderInner, _)), itemList)
+enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) oldGame@(narratorstr, roomMap, winPos, (player, playerPos@(playerRoom, playerInner, _)), enemyList, (ladder, ladderPos@(ladderRoom, ladderInner, _)), itemList)
    | str == "go forward" = do -- much the same as above
       let result = Mov.move oldEnemyPos Mov.Advance
       case result of
@@ -573,7 +579,7 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
             | roomMap ! newEnemyRoom -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
             -- makes sure there isn't anything on the new position
             | not (any (newEnemyPos `hasWon`) (ladderPos : playerPos : map snd enemyList)) -> return $
-               Right (roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+               Right (narratorstr, roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : enemyList, (ladder, ladderPos), itemList)
             -- checks if the obstacle is the player
             | hasWon newEnemyPos playerPos -> enemyAction "attack" (enemy, oldEnemyPos) oldGame
             | otherwise -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
@@ -582,35 +588,35 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
       tempGameRes <- enemyAction "go forward" (enemy, oldEnemyPos) oldGame
       case tempGameRes of
          Left resStr -> return $ Left resStr
-         Right tempGame@(_, _, _, (newEnemy, newEnemyPos) : _, _, _) -> if hasWon oldEnemyPos newEnemyPos
+         Right tempGame@(_, _, _, _, (newEnemy, newEnemyPos) : _, _, _) -> if hasWon oldEnemyPos newEnemyPos
             then return $ Right tempGame
             else enemyAction "sprint forward" (newEnemy, newEnemyPos) tempGame
    | str == "go back" = do
-      (Right tempGame1@(_, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn around" (enemy, oldEnemyPos) oldGame
+      (Right tempGame1@(_, _, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn around" (enemy, oldEnemyPos) oldGame
       tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) tempGame1
       case tempGameRes of
          Left resStr -> return $ Left resStr
-         Right tempGame2@(_, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn around" (tempEnemy, tempEnemyPos2) tempGame2
+         Right tempGame2@(_, _, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn around" (tempEnemy, tempEnemyPos2) tempGame2
    | str == "go left" = do
-      (Right tempGame1@(_, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn left" (enemy, oldEnemyPos) oldGame
+      (Right tempGame1@(_, _, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn left" (enemy, oldEnemyPos) oldGame
       tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) tempGame1
       case tempGameRes of
          Left resStr -> return $ Left resStr
-         Right tempGame2@(_, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn right" (tempEnemy, tempEnemyPos2) tempGame2
+         Right tempGame2@(_, _, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn right" (tempEnemy, tempEnemyPos2) tempGame2
    | str == "go right" = do
-      (Right tempGame1@(_, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn right" (enemy, oldEnemyPos) oldGame
+      (Right tempGame1@(_, _, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn right" (enemy, oldEnemyPos) oldGame
       tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) tempGame1
       case tempGameRes of
          Left resStr -> return $ Left resStr
-         Right tempGame2@(_, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn left" (tempEnemy, tempEnemyPos2) tempGame2
+         Right tempGame2@(_, _, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn left" (tempEnemy, tempEnemyPos2) tempGame2
    | str == "turn left" = do
       let (Right newEnemyPos) = Mov.move oldEnemyPos Mov.TurnLeft
-      return $ Right (roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+      return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : enemyList, (ladder, ladderPos), itemList)
    | str == "turn right" = do
       let (Right newEnemyPos) = Mov.move oldEnemyPos Mov.TurnRight
-      return $ Right (roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+      return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : enemyList, (ladder, ladderPos), itemList)
    | str == "turn around" = do
-      (Right tempGame@(_, _, _, (_, tempEnemyPos) : _, _, _)) <- enemyAction "turn left" (enemy, oldEnemyPos) oldGame
+      (Right tempGame@(_, _, _, _, (_, tempEnemyPos) : _, _, _)) <- enemyAction "turn left" (enemy, oldEnemyPos) oldGame
       enemyAction "turn left" (enemy, tempEnemyPos) tempGame
    | str == "turn randomly" = do
       gen <- newStdGen
@@ -630,31 +636,31 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
                   let newPlayer = Cha.reduceHealth Item.fistDmg player
                   if Cha.isDead newPlayer
                      then return . Left $ "You were dealt one blow too many by that vicious " ++ Cha.name enemy ++ ". You have perished.\n"
-                     else return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                     else return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
                Just oldShield -> do
                   let newShield = Item.reduceDur Item.fistDmg oldShield
                   if Item.isDestroyed newShield
                      then do
                         let newPlayer = Cha.dropItem oldShield player
-                        return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                        return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
                      else do
                         let newPlayer = Cha.modifyInv True oldShield newShield player
-                        return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                        return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
             Just weapon@(_, _, Item.Weapon dmg _) -> case playerShield of
                Nothing -> do
                   let newPlayer = Cha.reduceHealth dmg player
                   if Cha.isDead newPlayer
                      then return . Left $ "You were dealt one blow too many by that vicious " ++ Cha.name enemy ++ ". You have perished.\n"
-                     else return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                     else return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
                Just oldShield -> do
                   let newShield = Item.reduceDur dmg oldShield
                   if Item.isDestroyed newShield
                      then do
                         let newPlayer = Cha.dropItem oldShield player
-                        return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                        return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
                      else do
                         let newPlayer = Cha.modifyInv True oldShield newShield player
-                        return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList) 
+                        return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList) 
       else if playerPos `Mov.inLOS` oldEnemyPos -- the player isn't directly in front of the enemy, but still in its line of sight
          then if Cha.name enemy == "Berserker" -- berserkers gonna berserk
             then enemyAction "sprint forward" (enemy, oldEnemyPos) oldGame
@@ -666,16 +672,16 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
                            let newPlayer = Cha.reduceHealth dmg player
                            if Cha.isDead newPlayer
                               then return . Left $ "You were dealt one blow too many by that vicious " ++ Cha.name enemy ++ ". You have perished.\n"
-                              else return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                              else return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
                         Just oldShield -> do
                            let newShield = Item.reduceDur dmg oldShield
                            if Item.isDestroyed newShield
                               then do
                                  let newPlayer = Cha.dropItem oldShield player
-                                 return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                                 return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
                               else do
                                  let newPlayer = Cha.modifyInv True oldShield newShield player
-                                 return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                                 return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
                      else enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame -- if it isn't, do something else
       else enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame -- if the enemy doesn't see a player, there's no point in attacking
 

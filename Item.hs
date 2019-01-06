@@ -42,6 +42,10 @@ instance Random Attributes where
 type Item = (String, Bool, Attributes)
 
 
+name :: Item -> String
+name (str, _, _) = str
+
+
 randomItem :: RandomGen g => String -> g -> Item
 randomItem name gen = let (randAttr, _) = random gen
                       in (name, True, randAttr)
