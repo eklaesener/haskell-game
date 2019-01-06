@@ -577,7 +577,14 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
             -- checks if the obstacle is the player
             | hasWon newEnemyPos playerPos -> enemyAction "attack" (enemy, oldEnemyPos) oldGame
             | otherwise -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
-   -- these all will produce multiple entries of enemy in the enemyList, but those get filtered out by the caller
+   -- these next four will produce multiple entries of enemy in the enemyList, but those get filtered out by the caller
+   | str == "sprint forward" = do
+      tempGameRes <- enemyAction "go forward" (enemy, oldEnemyPos) oldGame
+      case tempGameRes of
+         Left resStr -> return $ Left resStr
+         Right tempGame@(_, _, _, (newEnemy, newEnemyPos) : _, _, _) -> if hasWon oldEnemyPos newEnemyPos
+            then return $ Right tempGame
+            else enemyAction "sprint forward" (newEnemy, newEnemyPos) tempGame
    | str == "go back" = do
       (Right tempGame1@(_, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn around" (enemy, oldEnemyPos) oldGame
       tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) tempGame1
@@ -612,12 +619,65 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
          1 -> enemyAction "turn left" (enemy, oldEnemyPos) oldGame
          2 -> enemyAction "turn right" (enemy, oldEnemyPos) oldGame
          3 -> enemyAction "turn around" (enemy, oldEnemyPos) oldGame
-
-
-
-
-
-
+   | str == "attack" = do
+      let oldPlayerHP = Cha.hp player
+      let enemyWeapon = Cha.equippedWeapon enemy
+      let playerShield = Cha.equippedShield player
+      if playerPos `Mov.inFrontOf` oldEnemyPos -- the player is directly in front of the enemy
+         then case enemyWeapon of -- check if the enemy has a weapon equipped
+            Nothing -> case playerShield of -- check if the player has a shield equipped
+               Nothing -> do
+                  let newPlayer = Cha.reduceHealth Item.fistDmg player
+                  if Cha.isDead newPlayer
+                     then return . Left $ "You were dealt one blow too many by that vicious " ++ Cha.name enemy ++ ". You have perished.\n"
+                     else return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+               Just oldShield -> do
+                  let newShield = Item.reduceDur Item.fistDmg oldShield
+                  if Item.isDestroyed newShield
+                     then do
+                        let newPlayer = Cha.dropItem oldShield player
+                        return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                     else do
+                        let newPlayer = Cha.modifyInv True oldShield newShield player
+                        return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+            Just weapon@(_, _, Item.Weapon dmg _) -> case playerShield of
+               Nothing -> do
+                  let newPlayer = Cha.reduceHealth dmg player
+                  if Cha.isDead newPlayer
+                     then return . Left $ "You were dealt one blow too many by that vicious " ++ Cha.name enemy ++ ". You have perished.\n"
+                     else return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+               Just oldShield -> do
+                  let newShield = Item.reduceDur dmg oldShield
+                  if Item.isDestroyed newShield
+                     then do
+                        let newPlayer = Cha.dropItem oldShield player
+                        return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                     else do
+                        let newPlayer = Cha.modifyInv True oldShield newShield player
+                        return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList) 
+      else if playerPos `Mov.inLOS` oldEnemyPos -- the player isn't directly in front of the enemy, but still in its line of sight
+         then if Cha.name enemy == "Berserker" -- berserkers gonna berserk
+            then enemyAction "sprint forward" (enemy, oldEnemyPos) oldGame
+            else case enemyWeapon of
+               Nothing -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame -- no weapon means no way they can reach the player
+               Just weapon@(_, _, Item.Weapon dmg range) -> if (playerPos `Mov.distanceTo` oldEnemyPos) <= range -- check if the range is long enough
+                     then case playerShield of
+                        Nothing -> do
+                           let newPlayer = Cha.reduceHealth dmg player
+                           if Cha.isDead newPlayer
+                              then return . Left $ "You were dealt one blow too many by that vicious " ++ Cha.name enemy ++ ". You have perished.\n"
+                              else return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                        Just oldShield -> do
+                           let newShield = Item.reduceDur dmg oldShield
+                           if Item.isDestroyed newShield
+                              then do
+                                 let newPlayer = Cha.dropItem oldShield player
+                                 return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                              else do
+                                 let newPlayer = Cha.modifyInv True oldShield newShield player
+                                 return $ Right (roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                     else enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame -- if it isn't, do something else
+      else enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame -- if the enemy doesn't see a player, there's no point in attacking
 
 
 

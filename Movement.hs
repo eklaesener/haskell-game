@@ -82,6 +82,35 @@ nullPosition :: Position
 nullPosition = ((0,0), (0,0), North)
 
 
+-- takes two positions and checks if the first one is directly in front of the second one
+inFrontOf :: Position -> Position -> Bool
+((roomX1, roomY1), (x1, y1), _) `inFrontOf` ((roomX2, roomY2), (x2, y2), dir2)
+   | roomX1 /= roomX2 || roomY1 /= roomY2 = False
+   | x1 == x2 && y1 == y2 - 1 && dir2 == West = True
+   | x1 == x2 && y1 == y2 + 1 && dir2 == East = True
+   | x1 == x2 - 1 && y1 == y2 && dir2 == North = True
+   | x1 == x2 + 1 && y1 == y2 && dir2 == South = True
+   | otherwise = False
+
+
+-- takes two positions and checks if the second one has a direct line of sight to the first one
+inLOS :: Position -> Position -> Bool
+((roomX1, roomY1), (x1, y1), _) `inLOS` ((roomX2, roomY2), (x2, y2), dir2)
+   | roomX1 /= roomX2 || roomY1 /= roomY2 = False
+   | x1 == x2 && y1 < y2 && dir2 == West = True
+   | x1 == x2 && y1 > y2 && dir2 == East = True
+   | x1 < x2 && y1 == y2 && dir2 == North = True
+   | x1 > x2 && y1 == y2 && dir2 == South = True
+   | otherwise = False
+
+
+-- takes two positions and returns the distance between them (rounded to the nearest Int), errors if they aren't in the same room
+distanceTo :: Position -> Position -> Int
+((roomX1, roomY1), (x1, y1), _) `distanceTo` ((roomX2, roomY2), (x2, y2), _)
+   | roomX1 /= roomX2 || roomY1 /= roomY2 = error "Positions not in the same room!"
+   | otherwise = round . sqrt $ (fromIntegral x1 - fromIntegral x2)^2 + (fromIntegral y1 - fromIntegral y2)^2
+
+
 
 -- returns Left String if something went wrong and Right Position if the move is allowed
 move :: Position -> Movement -> Either String Position

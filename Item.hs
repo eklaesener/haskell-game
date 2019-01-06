@@ -47,9 +47,48 @@ randomItem name gen = let (randAttr, _) = random gen
                       in (name, True, randAttr)
 
 
+-- the damage a character produces if he doesn't have a weapon equipped
+fistDmg :: Float
+fistDmg = 2.5
+
+
+-- modifies shields' durability, errors if the item isn't a shield
+changeDur :: Float -> Item -> Item
+changeDur x (name, isInv, Shield oldDur) = (name, isInv, Shield (oldDur + x))
+changeDur _ item = error $ "Not a shield: " ++ show item
+
+
+-- reduces shield's durability
+reduceDur :: Float -> Item -> Item
+reduceDur x = changeDur (-x)
+
+
+-- checks if the shield's durability is 0 or less, errors if the item isn't a shield
+isDestroyed :: Item -> Bool
+isDestroyed (_, _, Shield dur)
+   | dur <= 0 = True
+   | otherwise = False
+isDestroyed item = error $ "Not a shield: " ++ show item
+
+
+isWeapon :: Item -> Bool
+isWeapon (_, _, Weapon _ _) = True
+isWeapon _ = False
+
+
+isShield :: Item -> Bool
+isShield (_, _, Shield _) = True
+isShield _ = False
+
+
+isKey :: Item -> Bool
+isKey (_, _, Key _) = True
+isKey _ = False
+
 
 ladder :: Item
 ladder = ("Ladder", False, Ladder)
+
 
 keyList :: [Item]
 keyList = [("Key", True, Key (0,0))
