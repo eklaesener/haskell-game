@@ -1,5 +1,6 @@
 import Data.Array (listArray, (!))
 import Data.Char (toLower)
+import Data.List (sortBy)
 import System.IO
 import System.Exit (exitSuccess)
 import System.Random
@@ -537,8 +538,78 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
       let losList = filter (\(_, pos) -> pos `Mov.inLOS` oldPlayerPos) enemyList
       let frontList = filter (\(_, pos) -> pos `Mov.inFrontOf` oldPlayerPos) losList
       if null losList
-         then return $ Right ("I don't see anyone standing there, do you?\n", roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
-      else return $ Right ("", roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+         then return $ Right ("I don't see anyone standing there, do you?", roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+         else if null frontList
+            then do
+               let (nextEnemy, nextEnemyPos) = head . sortBy (\(_, x) (_, y) -> compare (x `Mov.distanceTo` oldPlayerPos) (y `Mov.distanceTo` oldPlayerPos)) $ losList
+               let playerWeapon = Cha.equippedWeapon player
+               let enemyShield = Cha.equippedShield nextEnemy
+               failMsg <- getOutOfReachMsg $ Cha.name nextEnemy
+               winMsg <- getVictorMsg $ Cha.name nextEnemy
+               hitMsg <- getHitMsg $ Cha.name nextEnemy
+               shieldHitMsg <- getShieldHitMsg $ Cha.name nextEnemy
+               shieldDestroyedMsg <- getShieldDestroyedMsg $ Cha.name nextEnemy
+               case playerWeapon of
+                  Nothing -> return $ Right (failMsg, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+                  Just (_, _, Item.Weapon dmg range) -> if (nextEnemyPos `Mov.distanceTo` oldPlayerPos) <= range
+                     then case enemyShield of
+                        Nothing -> do
+                           let newEnemy = Cha.reduceHealth dmg nextEnemy
+                           if Cha.isDead newEnemy
+                              then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                              else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                        Just oldShield -> do
+                           let newShield = Item.reduceDur dmg oldShield
+                           if Item.isDestroyed newShield
+                              then do
+                                 let newEnemy = Cha.dropItem oldShield nextEnemy
+                                 return $ Right (shieldDestroyedMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                              else do
+                                 let newEnemy = Cha.modifyInv True oldShield newShield nextEnemy
+                                 return $ Right (shieldHitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                     -- You can't reach the enemy
+                     else return $ Right (failMsg, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+               
+            else do
+               let (nextEnemy, nextEnemyPos) = head frontList
+               let playerWeapon = Cha.equippedWeapon player
+               let enemyShield = Cha.equippedShield nextEnemy
+               failMsg <- getOutOfReachMsg $ Cha.name nextEnemy
+               winMsg <- getVictorMsg $ Cha.name nextEnemy
+               hitMsg <- getHitMsg $ Cha.name nextEnemy
+               shieldHitMsg <- getShieldHitMsg $ Cha.name nextEnemy
+               shieldDestroyedMsg <- getShieldDestroyedMsg $ Cha.name nextEnemy
+               case playerWeapon of
+                  Nothing -> case enemyShield of
+                     Nothing -> do
+                        let newEnemy = Cha.reduceHealth Item.fistDmg nextEnemy
+                        if Cha.isDead newEnemy
+                           then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                           else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                     Just oldShield -> do
+                        let newShield = Item.reduceDur Item.fistDmg oldShield
+                        if Item.isDestroyed newShield
+                           then do
+                              let newEnemy = Cha.dropItem oldShield nextEnemy
+                              return $ Right (shieldDestroyedMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                           else do
+                              let newEnemy = Cha.modifyInv True oldShield newShield nextEnemy
+                              return $ Right (shieldHitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                  Just (_, _, Item.Weapon dmg range) -> case enemyShield of
+                     Nothing -> do
+                        let newEnemy = Cha.reduceHealth dmg nextEnemy
+                        if Cha.isDead newEnemy
+                           then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                           else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                     Just oldShield -> do
+                        let newShield = Item.reduceDur dmg oldShield
+                        if Item.isDestroyed newShield
+                           then do
+                              let newEnemy = Cha.dropItem oldShield nextEnemy
+                              return $ Right (shieldDestroyedMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                           else do
+                              let newEnemy = Cha.modifyInv True oldShield newShield nextEnemy
+                              return $ Right (shieldHitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
    --
    -- Getting a list of commands:
    | str == "help" = do
@@ -626,7 +697,6 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
          2 -> enemyAction "turn right" (enemy, oldEnemyPos) oldGame
          3 -> enemyAction "turn around" (enemy, oldEnemyPos) oldGame
    | str == "attack" = do
-      let oldPlayerHP = Cha.hp player
       let enemyWeapon = Cha.equippedWeapon enemy
       let playerShield = Cha.equippedShield player
       if playerPos `Mov.inFrontOf` oldEnemyPos -- the player is directly in front of the enemy
@@ -646,7 +716,7 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
                      else do
                         let newPlayer = Cha.modifyInv True oldShield newShield player
                         return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
-            Just weapon@(_, _, Item.Weapon dmg _) -> case playerShield of
+            Just (_, _, Item.Weapon dmg _) -> case playerShield of
                Nothing -> do
                   let newPlayer = Cha.reduceHealth dmg player
                   if Cha.isDead newPlayer
@@ -666,7 +736,7 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
             then enemyAction "sprint forward" (enemy, oldEnemyPos) oldGame
             else case enemyWeapon of
                Nothing -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame -- no weapon means no way they can reach the player
-               Just weapon@(_, _, Item.Weapon dmg range) -> if (playerPos `Mov.distanceTo` oldEnemyPos) <= range -- check if the range is long enough
+               Just (_, _, Item.Weapon dmg range) -> if (playerPos `Mov.distanceTo` oldEnemyPos) <= range -- check if the range is long enough
                      then case playerShield of
                         Nothing -> do
                            let newPlayer = Cha.reduceHealth dmg player
