@@ -69,8 +69,7 @@ draw :: InputList -> IO ()
 draw list = helper . drawing 0 $ cleanList list
    where
       -- takes one element out of the [DrawList] (one row), compresses the strings into one with unlines, filters out the newlines the unlines call has generated, prints that string to the command line, and recursively calls itself with the rest of the [DrawList]
-      helper [] = putStrLn ""
-      helper (x:xs) = (putStrLn . filter (\ch -> ch /= '\n') . unlines $ x) >> helper xs
+      helper = foldr (\x -> (>>) (putStrLn . filter (/= '\n') . unlines $ x)) (putStrLn "")
 
 
 -- discards the coordinates, since we only needed them for sorting

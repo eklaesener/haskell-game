@@ -5,12 +5,16 @@ import qualified Item
 -- reads as [(Item, equipped)]
 type Inventory = [(Item.Item, Bool)]
 
-data Character = Null
-               | Character { name :: String
+data Character = Character { name :: String
                            , hp :: Float
                            , pc :: Bool
                            , inv :: Inventory
                            } deriving Show
+
+
+nullCharacter :: Character
+nullCharacter = Character "" 0 False []
+
 
 
 setHealth :: Float -> Character -> Character
@@ -41,6 +45,12 @@ isDead Character { hp = currHP }
    | otherwise = False
 
 
+-- how many weapons the character has
+numWeapons :: Character -> Int
+numWeapons Character { inv = currInv } = length list
+  where list = filter Item.isWeapon . map fst $ currInv
+
+
 -- which weapon, if any, is currently equipped
 equippedWeapon :: Character -> Maybe Item.Item
 equippedWeapon Character { inv = currInv } = if null list
@@ -49,12 +59,26 @@ equippedWeapon Character { inv = currInv } = if null list
   where list = filter Item.isWeapon . map fst . filter snd $ currInv
 
 
+-- how many shields the character has
+numShields :: Character -> Int
+numShields Character { inv = currInv } = length list
+  where list = filter Item.isShield . map fst $ currInv
+
+
 -- which shield, if any, is currently equipped
 equippedShield :: Character -> Maybe Item.Item
 equippedShield Character { inv = currInv } = if null list
                                              then Nothing
                                              else Just $ head list
   where list = filter Item.isShield . map fst . filter snd $ currInv
+
+
+-- which key, if any, is currently equipped
+equippedKey :: Character -> Maybe Item.Item
+equippedKey Character { inv = currInv } = if null list
+                                          then Nothing
+                                          else Just $ head list
+  where list = filter Item.isKey . map fst . filter snd $ currInv
 
 
 -- changes an item in the character's inventory
@@ -68,9 +92,9 @@ modifyInv isEquipped oldItem newItem char@Character { inv = oldInv }
 pickupItem :: Bool -> Item.Item -> Character -> Character
 pickupItem isEquipped item@(_, isInventory, _) char@Character { inv = oldInv }
    | not isInventory = error "Item can't be picked up"
-   | item `elem` oldItems = error "Item already in Inventory"
+--   | item `elem` oldItems = error "Item already in Inventory"
    | otherwise = char { inv = (item, isEquipped) : oldInv }
-  where (oldItems, _) = unzip oldInv
+--  where (oldItems, _) = unzip oldInv
 
 
 dropItem :: Item.Item -> Character -> Character

@@ -47,8 +47,8 @@ name (str, _, _) = str
 
 
 randomItem :: RandomGen g => String -> g -> Item
-randomItem name gen = let (randAttr, _) = random gen
-                      in (name, True, randAttr)
+randomItem itemName gen = let (randAttr, _) = random gen
+                      in (itemName, True, randAttr)
 
 
 -- the damage a character produces if he doesn't have a weapon equipped
@@ -58,7 +58,7 @@ fistDmg = 2.5
 
 -- modifies shields' durability, errors if the item isn't a shield
 changeDur :: Float -> Item -> Item
-changeDur x (name, isInv, Shield oldDur) = (name, isInv, Shield (oldDur + x))
+changeDur x (itemName, isInv, Shield oldDur) = (itemName, isInv, Shield (oldDur + x))
 changeDur _ item = error $ "Not a shield: " ++ show item
 
 
