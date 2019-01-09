@@ -1,6 +1,7 @@
 module Character where
 
 import qualified Item
+import qualified Movement as Mov
 
 -- reads as [(Item, equipped)]
 type Inventory = [(Item.Item, Bool)]
@@ -50,6 +51,10 @@ isDead Character { hp = currHP }
    | currHP <= 0 = True
    | otherwise = False
 
+
+-- checks if the given character has a key unlocking the given room
+hasKey :: Mov.Location -> Character -> Bool
+hasKey room Character { inv = currInv } = (room `elem`) . map ((\(_, _, Item.Key x) -> x) . fst) $ currInv
 
 weaponList :: Character -> Inventory
 weaponList Character { inv = currInv } = filter (\(x, _) -> Item.isWeapon x) currInv

@@ -435,16 +435,41 @@ gameState game = do
          let action = shortInput input
          playerResultUnformatted <- playerAction action game
          case playerResultUnformatted of
-            (Left str) -> return str
-            (Right newGame) -> do
-               -- TODO: Add Enemy actions here
-               gameState newGame
+            Left str -> return str
+            Right tempGame -> do
+               enemyResultUnformatted <- cycleEnemies tempGame
+               case enemyResultUnformatted of
+                  Left str -> return str
+                  Right newGame -> gameState newGame
       else do
-         putStrLn "Kein Input"
-         -- TODO: Add Enemy actions here
-         gameState game
+         enemyResultUnformatted <- cycleEnemies game
+         case enemyResultUnformatted of
+            Left str -> return str
+            Right newGame -> gameState newGame
 
 
+
+-- cycles through the list of enemies, performing one action each
+cycleEnemies :: Game -> IO (Either String Game)
+cycleEnemies oldGame@(_, _, _, _, enemyList, _, _)
+   | null enemyList = return $ Right oldGame
+   | otherwise = helper (head enemyList) (tail enemyList) oldGame
+  where
+   helper enemyWithPos rest oldGame@(narrStr, roomMap, winPos, playerWithPos, oldEnemyList, ladderWithPos, itemList)
+      | null rest = do
+         result <- enemyAction "random action" enemyWithPos oldGame
+         case result of
+            Left str -> return $ Left str
+            Right (newNarrStr, _, _, newPlayerWithPos, newEnemyWithPos : tempEnemyList, _, newItemList) -> do
+               let newEnemyList = newEnemyWithPos : filter (/= enemyWithPos) tempEnemyList
+               return $ Right (newNarrStr, roomMap, winPos, newPlayerWithPos, newEnemyList, ladderWithPos, newItemList)
+      | otherwise = do
+         result <- enemyAction "random action" enemyWithPos oldGame
+         case result of
+            Left str -> return $ Left str
+            Right (newNarrStr, _, _, newPlayerWithPos, newEnemyWithPos : tempEnemyList, _, newItemList) -> do
+               let newEnemyList = newEnemyWithPos : filter (/= enemyWithPos) tempEnemyList
+               helper (head rest) (tail rest) (newNarrStr, roomMap, winPos, newPlayerWithPos, newEnemyList, ladderWithPos, newItemList)
 
 
 -- translates the keys into playerAction strings
@@ -478,7 +503,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
                newNaStr <- getDoorBlockedMsg
                return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
          Right newPlayerPos@(newPlayerRoom, newPlayerInner, _)
-            | roomMap ! newPlayerRoom -> do -- if the new room is locked, don't allow the move
+            | roomMap ! newPlayerRoom && not (Cha.hasKey newPlayerRoom player) -> do -- if the new room is locked and the player doesn't have the right key, don't allow the move
                newNaStr <- getRoomLockedMsg
                return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
             -- we won't collide with anything, so everything is alright
@@ -508,7 +533,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
                         newNaStr <- getDoorBlockedMsg
                         return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
                   Right newLadderPos@(newLadderRoom, newLadderInner, _)
-                     | roomMap ! newLadderRoom -> do
+                     | roomMap ! newLadderRoom && not (Cha.hasKey newLadderRoom player) -> do
                         newNaStr <- getRoomLockedMsg
                         return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
                      | hasWon newLadderPos winPos -> return $ Left "You've finally gotten out of the caverns! Though you probably shouldn't explore caves like this one anymore...\n"
@@ -836,8 +861,8 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
    --
    -- Picking up items
    | str == "pickup item" = do
-      -- get a list of the items at the current location
-      let placeItemList = filter (\(_, x) -> x `hasWon` oldEnemyPos) itemList
+      -- get a list of the items at the current location that aren't keys
+      let placeItemList = filter (\(x, _) -> not (Item.isKey x)) . filter (\(_, x) -> x `hasWon` oldEnemyPos) $ itemList
       if null placeItemList
          then enemyAction "random action" (enemy, oldEnemyPos) oldGame
          else do
