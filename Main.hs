@@ -1,6 +1,7 @@
 import Data.Array (listArray, (!))
 import Data.Char (toLower)
 import Data.List (minimumBy)
+import Data.Maybe (isJust, isNothing)
 import System.IO
 import System.Exit (exitSuccess)
 import System.Random
@@ -162,12 +163,20 @@ insert a@((x1, y1), _) (b@((x2, y2), _) : rest)
 
 
 
+-- filters the given enemy out of the enemyList and, if wanted, prepends them to it
+filterEnemy :: Bool -> Enemy -> Game -> Game
+filterEnemy bool enemyWithPos (narrStr, roomMap, winPos, playerWithPos, enemyList, ladderWithPos, itemList)
+   | bool = (narrStr, roomMap, winPos, playerWithPos, enemyWithPos : filteredList, ladderWithPos, itemList)
+   | otherwise = (narrStr, roomMap, winPos, playerWithPos, filteredList, ladderWithPos, itemList)
+  where filteredList = filter (/= enemyWithPos) enemyList
+
 
 
 getEnemyName :: IO String
 getEnemyName = do
    gen <- newStdGen
    return . (enemyNames!!) . head $ randomRs (0, length enemyNames - 1) gen
+
 
 enemyNames :: [String]
 enemyNames =
@@ -616,7 +625,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
          else do
             let (newItem, _) = head placeItemList
             let newPlayer = Cha.pickupItem False newItem player
-            successStr <- getItemPickedUpMsg $ name newItem
+            successStr <- getItemPickedUpMsg $ Item.name newItem
             return $ Right (successStr, roomMap, winPos, (newPlayer, oldPlayerPos), enemyList, (ladder, oldLadderPos), filter (/= (newItem, oldPlayerPos)) itemList)
    --
    -- Dropping the currently equipped weapon
@@ -626,7 +635,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
       case playerWeapon of
          Nothing -> return $ Right (failStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
          Just weapon -> do
-            successStr <- getWeaponDroppedMsg $ name weapon
+            successStr <- getWeaponDroppedMsg $ Item.name weapon
             let newPlayer = Cha.dropItem weapon player
             return $ Right (successStr, roomMap, winPos, (newPlayer, oldPlayerPos), enemyList, (ladder, oldLadderPos), (weapon, oldPlayerPos) : itemList)
    --
@@ -637,9 +646,50 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
       case playerShield of
          Nothing -> return $ Right (failStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
          Just shield -> do
-            successStr <- getShieldDroppedMsg $ name shield
+            successStr <- getShieldDroppedMsg $ Item.name shield
             let newPlayer = Cha.dropItem shield player
             return $ Right (successStr, roomMap, winPos, (newPlayer, oldPlayerPos), enemyList, (ladder, oldLadderPos), (shield, oldPlayerPos) : itemList)
+   --
+   -- Swapping the currently equipped weapon with the next available one
+   | str == "swap weapon" = if Cha.numWeapons == 0 || (Cha.numWeapons player == 1 && isJust (Cha.equippedWeapon player))
+      then do
+         failStr <- getWeaponSwapNotEnoughMsg
+         return $ Right (failStr, roomMap, winPos, (player, oldPlayerPos),  enemyList, (ladder, oldLadderPos), itemList)
+      else do
+         let unUsedWeaponList = map fst . filter (not . snd) $ Cha.weaponList player
+         gen <- newStdGen
+         let newWeapon = (unUsedWeaponList!!) . head . randomRs (0, length unUsedWeaponList - 1) $ gen
+         let oldWeapon = Cha.equippedWeapon player
+         case oldWeapon of
+            Nothing -> do
+               let newPlayer = Cha.setEquipped True newWeapon player
+               successStr <- getWeaponSwapOneMsg $ Item.name newWeapon
+               return $ Right (successStr, roomMap, winPos, (newPlayer, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+            Just weapon -> do
+               let newPlayer = Cha.setEquipped True newWeapon . Cha.setEquipped False weapon $ player
+               successStr <- getWeaponSwapTwoMsg (Item.name weapon) (Item.name newWeapon)
+               return $ Right (successStr, roomMap, winPos, (newPlayer, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+   --
+   -- The same for the shield
+   | str == "swap shield" = if Cha.numShields == 0 || (Cha.numShields player == 1 && isJust (Cha.equippedShield player))
+      then do
+         failStr <- getShieldSwapNotEnoughMsg
+         return $ Right (failStr, roomMap, winPos, (player, oldPlayerPos),  enemyList, (ladder, oldLadderPos), itemList)
+      else do
+         let unUsedShieldList = map fst . filter (not . snd) $ Cha.shieldList player
+         gen <- newStdGen
+         let newShield = (unUsedShieldList!!) . head . randomRs (0, length unUsedShieldList - 1) $ gen
+         let oldShield = Cha.equippedShield player
+         case oldShield of
+            Nothing -> do
+               let newPlayer = Cha.setEquipped True newShield player
+               successStr <- getShieldSwapOneMsg $ Item.name newShield
+               return $ Right (successStr, roomMap, winPos, (newPlayer, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+            Just shield -> do
+               let newPlayer = Cha.setEquipped True newShield . Cha.setEquipped False shield $ player
+               successStr <- getShieldSwapTwoMsg (Item.name shield) (Item.name newShield)
+               return $ Right (successStr, roomMap, winPos, (newPlayer, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+
    --
    -- Getting a list of commands:
    | str == "help" = do
@@ -680,45 +730,44 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
             | roomMap ! newEnemyRoom -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
             -- makes sure there isn't anything on the new position
             | not (any (newEnemyPos `hasWon`) (ladderPos : playerPos : map snd enemyList)) -> return $
-               Right (narratorstr, roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+               Right (narratorstr, roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
             -- checks if the obstacle is the player
             | hasWon newEnemyPos playerPos -> enemyAction "attack" (enemy, oldEnemyPos) oldGame
             | otherwise -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
-   -- these next four will produce multiple entries of enemy in the enemyList, but those get filtered out by the caller
    | str == "sprint forward" = do
       tempGameRes <- enemyAction "go forward" (enemy, oldEnemyPos) oldGame
       case tempGameRes of
          Left resStr -> return $ Left resStr
          Right tempGame@(_, _, _, _, (newEnemy, newEnemyPos) : _, _, _) -> if hasWon oldEnemyPos newEnemyPos
-            then return $ Right tempGame
-            else enemyAction "sprint forward" (newEnemy, newEnemyPos) tempGame
+            then return . Right $ filterEnemy False (enemy, oldEnemyPos) tempGame
+            else enemyAction "sprint forward" (newEnemy, newEnemyPos) $ filterEnemy False (enemy, oldEnemyPos) tempGame
    | str == "go back" = do
       (Right tempGame1@(_, _, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn around" (enemy, oldEnemyPos) oldGame
-      tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) tempGame1
+      tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) $ filterEnemy False (enemy, oldEnemyPos) tempGame1
       case tempGameRes of
          Left resStr -> return $ Left resStr
-         Right tempGame2@(_, _, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn around" (tempEnemy, tempEnemyPos2) tempGame2
+         Right tempGame2@(_, _, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn around" (tempEnemy, tempEnemyPos2) $ filterEnemy False (enemy, tempEnemyPos1) tempGame2
    | str == "go left" = do
       (Right tempGame1@(_, _, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn left" (enemy, oldEnemyPos) oldGame
-      tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) tempGame1
+      tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) $ filterEnemy False (enemy, oldEnemyPos) tempGame1
       case tempGameRes of
          Left resStr -> return $ Left resStr
-         Right tempGame2@(_, _, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn right" (tempEnemy, tempEnemyPos2) tempGame2
+         Right tempGame2@(_, _, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn right" (tempEnemy, tempEnemyPos2) $ filterEnemy False (enemy, tempEnemyPos1) tempGame2
    | str == "go right" = do
       (Right tempGame1@(_, _, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn right" (enemy, oldEnemyPos) oldGame
-      tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) tempGame1
+      tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) $ filterEnemy False (enemy, oldEnemyPos) tempGame1
       case tempGameRes of
          Left resStr -> return $ Left resStr
-         Right tempGame2@(_, _, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn left" (tempEnemy, tempEnemyPos2) tempGame2
+         Right tempGame2@(_, _, _, _, (tempEnemy, tempEnemyPos2) : _, _, _) -> enemyAction "turn left" (tempEnemy, tempEnemyPos2) $ filterEnemy False (enemy, tempEnemyPos1) tempGame2
    | str == "turn left" = do
       let (Right newEnemyPos) = Mov.move oldEnemyPos Mov.TurnLeft
-      return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+      return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
    | str == "turn right" = do
       let (Right newEnemyPos) = Mov.move oldEnemyPos Mov.TurnRight
-      return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+      return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
    | str == "turn around" = do
       (Right tempGame@(_, _, _, _, (_, tempEnemyPos) : _, _, _)) <- enemyAction "turn left" (enemy, oldEnemyPos) oldGame
-      enemyAction "turn left" (enemy, tempEnemyPos) tempGame
+      enemyAction "turn left" (enemy, tempEnemyPos) $ filterEnemy False (enemy, oldEnemyPos) tempGame
    | str == "turn randomly" = do
       gen <- newStdGen
       let option = head . randomRs (1,3) $ gen :: Int
@@ -736,87 +785,111 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
                   let newPlayer = Cha.reduceHealth Item.fistDmg player
                   if Cha.isDead newPlayer
                      then return . Left $ "You were dealt one blow too many by that vicious " ++ Cha.name enemy ++ ". You have perished.\n"
-                     else return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                     else return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
                Just oldShield -> do
                   let newShield = Item.reduceDur Item.fistDmg oldShield
                   if Item.isDestroyed newShield
                      then do
                         let newPlayer = Cha.dropItem oldShield player
-                        return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                        return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
                      else do
                         let newPlayer = Cha.modifyInv True oldShield newShield player
-                        return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                        return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
             Just (_, _, Item.Weapon dmg _) -> case playerShield of
                Nothing -> do
                   let newPlayer = Cha.reduceHealth dmg player
                   if Cha.isDead newPlayer
                      then return . Left $ "You were dealt one blow too many by that vicious " ++ Cha.name enemy ++ ". You have perished.\n"
-                     else return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                     else return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
                Just oldShield -> do
                   let newShield = Item.reduceDur dmg oldShield
                   if Item.isDestroyed newShield
                      then do
                         let newPlayer = Cha.dropItem oldShield player
-                        return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                        return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
                      else do
                         let newPlayer = Cha.modifyInv True oldShield newShield player
-                        return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList) 
+                        return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList) 
       else if playerPos `Mov.inLOS` oldEnemyPos -- the player isn't directly in front of the enemy, but still in its line of sight
          then if Cha.name enemy == "Berserker" -- berserkers gonna berserk
             then enemyAction "sprint forward" (enemy, oldEnemyPos) oldGame
             else case enemyWeapon of
-               Nothing -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame -- no weapon means no way they can reach the player
+               Nothing -> enemyAction "random action" (enemy, oldEnemyPos) oldGame -- no weapon means no way they can reach the player
                Just (_, _, Item.Weapon dmg range) -> if (playerPos `Mov.distanceTo` oldEnemyPos) <= range -- check if the range is long enough
                      then case playerShield of
                         Nothing -> do
                            let newPlayer = Cha.reduceHealth dmg player
                            if Cha.isDead newPlayer
                               then return . Left $ "You were dealt one blow too many by that vicious " ++ Cha.name enemy ++ ". You have perished.\n"
-                              else return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                              else return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
                         Just oldShield -> do
                            let newShield = Item.reduceDur dmg oldShield
                            if Item.isDestroyed newShield
                               then do
                                  let newPlayer = Cha.dropItem oldShield player
-                                 return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
+                                 return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
                               else do
                                  let newPlayer = Cha.modifyInv True oldShield newShield player
-                                 return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, ladderPos), itemList)
-                     else enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame -- if it isn't, do something else
-      else enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame -- if the enemy doesn't see a player, there's no point in attacking
+                                 return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
+                     else enemyAction "random action" (enemy, oldEnemyPos) oldGame -- if it isn't, do something else
+      else enemyAction "random action" (enemy, oldEnemyPos) oldGame -- if the enemy doesn't see a player, there's no point in attacking
    --
    -- Picking up items
    | str == "pickup item" = do
       -- get a list of the items at the current location
       let placeItemList = filter (\(_, x) -> x `hasWon` oldEnemyPos) itemList
       if null placeItemList
-         then return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, oldLadderPos), itemList)
+         then enemyAction "random action" (enemy, oldEnemyPos) oldGame
          else do
             let (newItem, _) = head placeItemList
             let newEnemy = Cha.pickupItem False newItem enemy
-            return $ Right (narratorstr, roomMap, winPos, (newPlayer, oldPlayerPos), (newEnemy, oldEnemyPos) : enemyList, (ladder, oldLadderPos), filter (/= (newItem, oldEnemyPos)) itemList)
+            return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (newEnemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), filter (/= (newItem, oldEnemyPos)) itemList)
    --
    -- Dropping the currently equipped weapon
    | str == "drop weapon" = do
       let enemyWeapon = Cha.equippedWeapon enemy
       case enemyWeapon of
-         Nothing -> return $ Right (narratorstr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+         Nothing -> enemyAction "random action" (enemy, oldEnemyPos) oldGame
          Just weapon -> do
             let newEnemy = Cha.dropItem weapon enemy
-            return $ Right (narratorstr, roomMap, winPos, (newPlayer, oldPlayerPos), enemyList, (ladder, oldLadderPos), (weapon, oldPlayerPos) : itemList)
+            return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (newEnemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), (weapon, oldEnemyPos) : itemList)
    --
    -- Dropping the currently equipped shield
    | str == "drop shield" = do
       let enemyShield = Cha.equippedShield enemy
       case enemyShield of
-         Nothing -> return $ Right (narratorstr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+         Nothing -> enemyAction "random action" (enemy, oldEnemyPos) oldGame
          Just shield -> do
             let newEnemy = Cha.dropItem shield enemy
-            return $ Right (narratorstr, roomMap, winPos, (newPlayer, oldPlayerPos), enemyList, (ladder, oldLadderPos), (shield, oldPlayerPos) : itemList)
+            return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (newEnemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), (shield, oldEnemyPos) : itemList)
    | str == "swap weapon" = if Cha.numWeapons enemy < 2
-      then return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (enemy, oldEnemyPos) : enemyList, (ladder, oldLadderPos), itemList)
+      then enemyAction "random action" (enemy, oldEnemyPos) oldGame
       else do
-         
+         let unUsedWeaponList = map fst . filter (not . snd) $ Cha.weaponList enemy
+         gen <- newStdGen
+         let newWeapon = (unUsedWeaponList!!) . head . randomRs (0, length unUsedWeaponList - 1) $ gen
+         let oldWeapon = Cha.equippedWeapon enemy
+         case oldWeapon of
+            Nothing -> do
+               let newEnemy = Cha.setEquipped True newWeapon enemy
+               return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (newEnemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
+            Just weapon -> do
+               let newEnemy = Cha.setEquipped True newWeapon . Cha.setEquipped False weapon $ enemy
+               return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (newEnemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
+   | str == "swap shield" = if Cha.numShields enemy < 2
+      then enemyAction "random action" (enemy, oldEnemyPos) oldGame
+      else do
+         let unUsedShieldList = map fst . filter (not . snd) $ Cha.shieldList enemy
+         gen <- newStdGen
+         let newShield = (unUsedShieldList!!) . head . randomRs (0, length unUsedShieldList - 1) $ gen
+         let oldShield = Cha.equippedShield enemy
+         case oldShield of
+            Nothing -> do
+               let newEnemy = Cha.setEquipped True newShield enemy
+               return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (newEnemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
+            Just shield -> do
+               let newEnemy = Cha.setEquipped True newShield . Cha.setEquipped False shield $ enemy
+               return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (newEnemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
 
 
 

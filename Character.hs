@@ -37,6 +37,12 @@ setPlayerCharacter :: Bool -> Character -> Character
 setPlayerCharacter x char = char { pc = x }
 
 
+setEquipped :: Bool -> Item.Item -> Character -> Character
+setEquipped val item char@Character { inv = oldInv } = char { inv = newInv }
+  where list = filter (\(x,y) -> x == item && not val) oldInv
+        newInv = if null list
+                 then error $ "Character " ++ show char ++ " doesn't have an unequipped " ++ show item ++ "!"
+                 else (item, val) : filter (/= head list) oldInv
 
 
 isDead :: Character -> Bool
@@ -45,10 +51,13 @@ isDead Character { hp = currHP }
    | otherwise = False
 
 
+weaponList :: Character -> Inventory
+weaponList Character { inv = currInv } = filter (\(x, _) -> Item.isWeapon x) currInv
+
+
 -- how many weapons the character has
 numWeapons :: Character -> Int
-numWeapons Character { inv = currInv } = length list
-  where list = filter Item.isWeapon . map fst $ currInv
+numWeapons = length . weaponList
 
 
 -- which weapon, if any, is currently equipped
@@ -59,10 +68,13 @@ equippedWeapon Character { inv = currInv } = if null list
   where list = filter Item.isWeapon . map fst . filter snd $ currInv
 
 
+shieldList :: Character -> Inventory
+shieldList Character { inv = currInv } = filter (\(x, _) -> Item.isShield x) currInv
+
+
 -- how many shields the character has
 numShields :: Character -> Int
-numShields Character { inv = currInv } = length list
-  where list = filter Item.isShield . map fst $ currInv
+numShields = length . shieldList
 
 
 -- which shield, if any, is currently equipped
