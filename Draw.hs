@@ -18,8 +18,7 @@ doorList = [((x,y), door)
 filterDoorList :: [InnerLocation] -> [(InnerLocation, String)]
 filterDoorList = helper doorList
   where
-   helper list [] = list
-   helper list (x:xs) = helper (filter (\(a, _) -> x /= a) list) xs
+   helper list xs = foldl (\acc x -> filter (\(a, _) -> x /= a) acc) list xs
 
 
 dot :: String
