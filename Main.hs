@@ -100,7 +100,7 @@ createItem checkForLocked roomMap = do
          -- the key was spawned in the room that it unlocks, rendering it inaccessible
          | not (roomMap ! keyRoom) -> createItem checkForLocked roomMap
          -- the key is useless, because the room it unlocks already is unlocked
-      attr -> return (item, pos)
+      _ -> return (item, pos)
 
 -- creates a list of new items with length n
 createItems :: Int -> Bool -> Mov.Map -> Items -> IO Items
@@ -217,7 +217,8 @@ initialize :: IO Game
 initialize = do
    roomMap <- createMap
    let empty = emptyGame roomMap
-   playerAction "help" empty
+   (Right (narrStr, _, _, _, _, _, _)) <- playerAction "help" empty
+   putStrLn narrStr
    playerWithPos@(player, winPosition) <- createPlayer roomMap
    gen <- newStdGen
    gen2 <- getStdGen
@@ -375,7 +376,7 @@ drawMap (narratorStr, roomMap, winPos@(winRoom, winInner, _), (player, (playerRo
 -- tracks the state of the game, returns only if you've won or lost
 gameState :: Game -> IO String
 gameState game = do
-   putStrLn . take 7 $ repeat '\n'
+   putStrLn . take 50 $ repeat '\n'
    drawMap game
    isNewInput <- hWaitForInput stdin 500
    if isNewInput
@@ -400,11 +401,11 @@ gameState game = do
 
 -- cycles through the list of enemies, performing one action each
 cycleEnemies :: Game -> IO (Either String Game)
-cycleEnemies oldGame@(_, _, _, _, enemyList, _, _)
-   | null enemyList = return $ Right oldGame
-   | otherwise = helper (head enemyList) (tail enemyList) oldGame
+cycleEnemies game@(_, _, _, _, enemyList, _, _)
+   | null enemyList = return $ Right game
+   | otherwise = helper (head enemyList) (tail enemyList) game
   where
-   helper enemyWithPos rest oldGame@(narrStr, roomMap, winPos, playerWithPos, oldEnemyList, ladderWithPos, itemList)
+   helper enemyWithPos rest oldGame@(_, roomMap, winPos, _, _, ladderWithPos, _)
       | null rest = do
          result <- enemyAction "random action" enemyWithPos oldGame
          case result of
@@ -438,9 +439,9 @@ shortInput input = case inputCaseIns of
 
 
 
--- decide if the action is allowed and if it is, do it
+-- decide if the action is allowed and if it is, perform it
 playerAction :: String -> Game -> IO (Either String Game)
-playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerInner, _)), enemyList, (ladder, oldLadderPos@(ladderRoom, ladderInner, ladderDir)), itemList)
+playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerInner, _)), enemyList, (ladder, oldLadderPos@(_, _, ladderDir)), itemList)
    | str == "go forward" = do
       let result = Mov.move oldPlayerPos Mov.Advance
       case result of
@@ -573,7 +574,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
                            else do
                               let newEnemy = Cha.modifyInv True oldShield newShield nextEnemy
                               return $ Right (shieldHitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
-                  Just (_, _, Item.Weapon dmg range) -> case enemyShield of
+                  Just (_, _, Item.Weapon dmg _) -> case enemyShield of
                      Nothing -> do
                         let newEnemy = Cha.reduceHealth dmg nextEnemy
                         if Cha.isDead newEnemy
@@ -685,21 +686,21 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
    --
    -- Unknown commands:
    | otherwise = do
-      let tempStr = "This command was not recognized!"
-      Right (tempNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList) <- playerAction "help" oldGame
+      let tempStr = "This command was not recognized! "
+      Right (tempNaStr, _, _, _, _, _, _) <- playerAction "help" oldGame
       return $ Right (tempStr ++ tempNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
 
 
 -- and now the possible actions for enemies
 enemyAction :: String -> Enemy -> Game -> IO (Either String Game)
-enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) oldGame@(narratorstr, roomMap, winPos, (player, playerPos@(playerRoom, playerInner, _)), enemyList, (ladder, ladderPos@(ladderRoom, ladderInner, _)), itemList)
+enemyAction str (enemy, oldEnemyPos) oldGame@(narratorstr, roomMap, winPos, (player, playerPos), enemyList, (ladder, ladderPos), itemList)
    | str == "go forward" = do -- much the same as above
       let result = Mov.move oldEnemyPos Mov.Advance
       case result of
          Left resStr
             | resStr == "Wall" -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
             | resStr == "Door blocked" -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
-         Right newEnemyPos@(newEnemyRoom, newEnemyInner, _)
+         Right newEnemyPos@(newEnemyRoom, _, _)
             -- TODO: decide if enemies should be able to enter locked rooms
             | roomMap ! newEnemyRoom -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
             -- makes sure there isn't anything on the new position
@@ -864,6 +865,25 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, oldEnemyInner, oldEnemyDir)) 
             Just shield -> do
                let newEnemy = Cha.setEquipped True newShield . Cha.setEquipped False shield $ enemy
                return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (newEnemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
+   --
+   -- choose a random action
+   | str == "random action" = do
+      gen <- newStdGen
+      let randOption = head . randomRs (1 :: Int, 13) $ gen
+      case randOption of
+         1 -> enemyAction "go forward" (enemy, oldEnemyPos) oldGame
+         2 -> enemyAction "go back" (enemy, oldEnemyPos) oldGame
+         3 -> enemyAction "go left" (enemy, oldEnemyPos) oldGame
+         4 -> enemyAction "go right" (enemy, oldEnemyPos) oldGame
+         5 -> enemyAction "turn right" (enemy, oldEnemyPos) oldGame
+         6 -> enemyAction "turn around" (enemy, oldEnemyPos) oldGame
+         7 -> enemyAction "turn left" (enemy, oldEnemyPos) oldGame
+         8 -> enemyAction "attack" (enemy, oldEnemyPos) oldGame
+         9 -> enemyAction "pickup item" (enemy, oldEnemyPos) oldGame
+         10 -> enemyAction "drop weapon" (enemy, oldEnemyPos) oldGame
+         11 -> enemyAction "drop shield" (enemy, oldEnemyPos) oldGame
+         12 -> enemyAction "swap weapon" (enemy, oldEnemyPos) oldGame
+         13 -> enemyAction "swap shield" (enemy, oldEnemyPos) oldGame
 
 
 
