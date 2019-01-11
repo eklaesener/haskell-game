@@ -60,7 +60,7 @@ wallPushMsgs =
 getOutOfReachMsg :: String -> IO String
 getOutOfReachMsg name = do
    gen <- newStdGen
-   return . (outOfReachMsgs name !!) . head $ randomRs (0, length outOfReachMsgs - 1) gen
+   return . (outOfReachMsgs name !!) . head $ randomRs (0, length (outOfReachMsgs name) - 1) gen
 
 outOfReachMsgs :: String -> [String]
 outOfReachMsgs name =
@@ -71,7 +71,7 @@ outOfReachMsgs name =
 getVictorMsg :: String -> IO String
 getVictorMsg name = do
    gen <- newStdGen
-   return . (victorMsgs name !!) . head $ randomRs (0, length victorMsgs - 1) gen
+   return . (victorMsgs name !!) . head $ randomRs (0, length (victorMsgs name) - 1) gen
 
 victorMsgs :: String -> [String]
 victorMsgs name =
@@ -82,7 +82,7 @@ victorMsgs name =
 getHitMsg :: String -> IO String
 getHitMsg name = do
    gen <- newStdGen
-   return . (hitMsgs name !!) . head $ randomRs (0, length hitMsgs - 1) gen
+   return . (hitMsgs name !!) . head $ randomRs (0, length (hitMsgs name) - 1) gen
 
 hitMsgs :: String -> [String]
 hitMsgs name =
@@ -93,7 +93,7 @@ hitMsgs name =
 getShieldHitMsg :: String -> IO String
 getShieldHitMsg name = do
    gen <- newStdGen
-   return . (shieldHitMsgs name !!) . head $ randomRs (0, length shieldHitMsgs - 1) gen
+   return . (shieldHitMsgs name !!) . head $ randomRs (0, length (shieldHitMsgs name) - 1) gen
 
 shieldHitMsgs :: String -> [String]
 shieldHitMsgs name =
@@ -104,7 +104,7 @@ shieldHitMsgs name =
 getShieldDestroyedMsg :: String -> IO String
 getShieldDestroyedMsg name = do
    gen <- newStdGen
-   return . (shieldDestroyedMsgs name !!) . head $ randomRs (0, length shieldDestroyedMsgs - 1) gen
+   return . (shieldDestroyedMsgs name !!) . head $ randomRs (0, length (shieldDestroyedMsgs name) - 1) gen
 
 shieldDestroyedMsgs :: String -> [String]
 shieldDestroyedMsgs name =
@@ -126,7 +126,7 @@ noItemHereMsgs =
 getItemPickedUpMsg :: String -> IO String
 getItemPickedUpMsg name = do
    gen <- newStdGen
-   return . (itemPickedUpMsgs name !!) . head $ randomRs (0, length itemPickedUpMsgs - 1) gen
+   return . (itemPickedUpMsgs name !!) . head $ randomRs (0, length (itemPickedUpMsgs name) - 1) gen
 
 itemPickedUpMsgs :: String -> [String]
 itemPickedUpMsgs name =
@@ -143,3 +143,105 @@ noWeaponMsgs :: [String]
 noWeaponMsgs =
    [""
    ]
+
+
+getWeaponDroppedMsg :: String -> IO String
+getWeaponDroppedMsg name = do
+   gen <- newStdGen
+   return . (weaponDroppedMsgs name !!) . head $ randomRs (0, length (weaponDroppedMsgs name) - 1) gen
+
+weaponDroppedMsgs :: String -> [String]
+weaponDroppedMsgs name =
+   [""
+   ]
+
+
+getNoShieldMsg :: IO String
+getNoShieldMsg = do
+   gen <- newStdGen
+   return . (noShieldMsgs!!) . head $ randomRs (0, length noShieldMsgs - 1) gen
+
+noShieldMsgs :: [String]
+noShieldMsgs =
+   [""
+   ]
+
+
+getShieldDroppedMsg :: String -> IO String
+getShieldDroppedMsg name = do
+   gen <- newStdGen
+   return . (shieldDroppedMsgs name !!) . head $ randomRs (0, length (shieldDroppedMsgs name) - 1) gen
+
+shieldDroppedMsgs :: String -> [String]
+shieldDroppedMsgs name =
+   [""
+   ]
+
+
+getWeaponSwapNotEnoughMsg :: IO String
+getWeaponSwapNotEnoughMsg = do
+   gen <- newStdGen
+   return . (weaponSwapNotEnoughMsgs!!) . head $ randomRs (0, length weaponSwapNotEnoughMsgs - 1) gen
+
+weaponSwapNotEnoughMsgs :: [String]
+weaponSwapNotEnoughMsgs =
+   [""
+   ]
+
+
+getWeaponSwapOneMsg :: String -> IO String
+getWeaponSwapOneMsg name = do
+   gen <- newStdGen
+   return . (weaponSwapOneMsgs name !!) . head $ randomRs (0, length (weaponSwapOneMsgs name) - 1) gen
+
+weaponSwapOneMsgs :: String -> [String]
+weaponSwapOneMsgs name =
+   [""
+   ]
+
+
+getWeaponSwapTwoMsg :: String -> String -> IO String
+getWeaponSwapTwoMsg oldName newName = do
+   gen <- newStdGen
+   return . (weaponSwapTwoMsgs oldName newName !!) . head $ randomRs (0, length (weaponSwapTwoMsgs oldName newName) - 1) gen
+
+weaponSwapTwoMsgs :: String -> String -> [String]
+weaponSwapTwoMsgs oldName newName =
+   [""
+   ]
+
+
+getShieldSwapNotEnoughMsg :: IO String
+getShieldSwapNotEnoughMsg = do
+   gen <- newStdGen
+   return . (shieldSwapNotEnoughMsgs!!) . head $ randomRs (0, length shieldSwapNotEnoughMsgs - 1) gen
+
+shieldSwapNotEnoughMsgs :: [String]
+shieldSwapNotEnoughMsgs =
+   [""
+   ]
+
+
+getShieldSwapOneMsg :: String -> IO String
+getShieldSwapOneMsg name = do
+   gen <- newStdGen
+   return . (shieldSwapOneMsgs name !!) . head $ randomRs (0, length (shieldSwapOneMsgs name) - 1) gen
+
+shieldSwapOneMsgs :: String -> [String]
+shieldSwapOneMsgs name =
+   [""
+   ]
+
+
+getShieldSwapTwoMsg :: String -> String -> IO String
+getShieldSwapTwoMsg oldName newName = do
+   gen <- newStdGen
+   return . (shieldSwapTwoMsgs oldName newName !!) . head $ randomRs (0, length (shieldSwapTwoMsgs oldName newName) - 1) gen
+
+shieldSwapTwoMsgs :: String -> String -> [String]
+shieldSwapTwoMsgs oldName newName =
+   [""
+   ]
+
+
+
