@@ -10,7 +10,7 @@ data Character = Character { name :: String
                            , hp :: Float
                            , pc :: Bool
                            , inv :: Inventory
-                           } deriving Show
+                           } deriving (Show, Eq)
 
 
 nullCharacter :: Character

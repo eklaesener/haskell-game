@@ -625,7 +625,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
             return $ Right (successStr, roomMap, winPos, (newPlayer, oldPlayerPos), enemyList, (ladder, oldLadderPos), (shield, oldPlayerPos) : itemList)
    --
    -- Swapping the currently equipped weapon with the next available one
-   | str == "swap weapon" = if Cha.numWeapons == 0 || (Cha.numWeapons player == 1 && isJust (Cha.equippedWeapon player))
+   | str == "swap weapon" = if Cha.numWeapons player == 0 || (Cha.numWeapons player == 1 && isJust (Cha.equippedWeapon player))
       then do
          failStr <- Msg.getWeaponSwapNotEnoughMsg
          return $ Right (failStr, roomMap, winPos, (player, oldPlayerPos),  enemyList, (ladder, oldLadderPos), itemList)
@@ -645,7 +645,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
                return $ Right (successStr, roomMap, winPos, (newPlayer, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
    --
    -- The same for the shield
-   | str == "swap shield" = if Cha.numShields == 0 || (Cha.numShields player == 1 && isJust (Cha.equippedShield player))
+   | str == "swap shield" = if Cha.numShields player == 0 || (Cha.numShields player == 1 && isJust (Cha.equippedShield player))
       then do
          failStr <- Msg.getShieldSwapNotEnoughMsg
          return $ Right (failStr, roomMap, winPos, (player, oldPlayerPos),  enemyList, (ladder, oldLadderPos), itemList)
