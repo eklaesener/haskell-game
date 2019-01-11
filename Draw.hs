@@ -14,30 +14,12 @@ doorList = [((x,y), door)
            , y <- [0 .. roomSize]
            , isDoorFull (x,y)]
 
--- filters out those doors that overlap with the player, ladder or win positions
+-- filters out those doors that overlap with any other positions
 filterDoorList :: [InnerLocation] -> [(InnerLocation, String)]
-filterDoorList [(a,b)] = 
-   [((x,y), door)
-   | x <- [0 .. roomSize]
-   , y <- [0 .. roomSize]
-   , (x,y) /= (a,b)
-   , isDoorFull (x,y)]
-filterDoorList [(a,b), (c,d)] = 
-   [((x,y), door)
-   | x <- [0 .. roomSize]
-   , y <- [0 .. roomSize]
-   , (x,y) /= (a,b)
-   , (x,y) /= (c,d)
-   , isDoorFull (x,y)]
-filterDoorList [(a,b), (c,d), (e,f)] = 
-   [((x,y), door)
-   | x <- [0 .. roomSize]
-   , y <- [0 .. roomSize]
-   , (x,y) /= (a,b)
-   , (x,y) /= (c,d)
-   , (x,y) /= (e,f)
-   , isDoorFull (x,y)]
-
+filterDoorList = helper doorList
+  where
+   helper list [] = list
+   helper list (x:xs) = helper (filter (\(a, _) -> x /= a) list) xs
 
 
 dot :: String

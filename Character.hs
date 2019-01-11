@@ -23,7 +23,7 @@ setHealth x char = char { hp = x }
 
 
 changeHealth :: Float -> Character -> Character
-changeHealth x char@Character { hp = oldhp } = char { hp = oldhp + x }
+changeHealth x char@Character { hp = oldHP } = char { hp = oldHP + x }
 
 
 reduceHealth :: Float -> Character -> Character
@@ -40,7 +40,7 @@ setPlayerCharacter x char = char { pc = x }
 
 setEquipped :: Bool -> Item.Item -> Character -> Character
 setEquipped val item char@Character { inv = oldInv } = char { inv = newInv }
-  where list = filter (\(x,y) -> x == item && not val) oldInv
+  where list = filter (\(x,y) -> x == item && y /= val) oldInv
         newInv = if null list
                  then error $ "Character " ++ show char ++ " doesn't have an unequipped " ++ show item ++ "!"
                  else (item, val) : filter (/= head list) oldInv
