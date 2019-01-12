@@ -104,7 +104,7 @@ filterClashes ((pos, str) : rest)
 
 -- draws the room
 draw :: InputList -> IO ()
-draw list = helper . drawing 0 . cleanList . foldr insert (filterDotList tempList) $ filterDoorList tempList ++ list
+draw list = helper . drawing 0 . cleanList . filterClashes . foldr insert (filterDotList tempList) $ filterDoorList tempList ++ list
   where
    tempList = map fst list
    -- takes one element out of the [DrawList] (one row), compresses the strings into one with unlines, filters out the newlines the unlines call has generated, prints that string to the command line, and recursively calls itself with the rest of the [DrawList]
