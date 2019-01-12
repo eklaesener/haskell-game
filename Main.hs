@@ -309,7 +309,7 @@ shortInput input = case inputCaseIns of
    'ö' -> "swap shield"
    'h' -> "help"
    'q' -> "quit"
-      _ -> "unknown" -- there isn't actually a match for unknown, so it will just fall through to the catch-all
+   _ -> "unknown" -- there isn't actually a match for unknown, so it will just fall through to the catch-all
   where inputCaseIns = toLower input
 
 
