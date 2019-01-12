@@ -217,7 +217,7 @@ initialize = do
    gen2 <- getStdGen
    let numEnemies = head $ randomRs (0, Mov.numRooms * 2) gen
    enemies <- createEnemies numEnemies False roomMap []
-   let numItems = head $ randomRs (0, Mov.numRooms) gen2
+   let numItems = head $ randomRs (0, Mov.numRooms * 3) gen2
    items <- createItems numItems False roomMap []
    ladderWithPos <- createLadder True roomMap
    putStr $ "\nWell, " ++ Cha.name player
@@ -294,15 +294,21 @@ cycleEnemies game@(_, _, _, _, enemyList, _, _)
 -- translates the keys into playerAction strings
 shortInput :: Char -> String
 shortInput input = case inputCaseIns of
-      'w' -> "go forward"
-      'd' -> "go right"
-      's' -> "go back"
-      'a' -> "go left"
-      'f' -> "turn right"
-      'r' -> "turn around"
-      'e' -> "turn left"
-      'h' -> "help"
-      'q' -> "quit"
+   'w' -> "go forward"
+   'd' -> "go right"
+   's' -> "go back"
+   'a' -> "go left"
+   'f' -> "turn right"
+   'r' -> "turn around"
+   'e' -> "turn left"
+   ' ' -> "attack"
+   'i' -> "pickup item"
+   'k' -> "drop weapon"
+   'j' -> "drop shield"
+   'l' -> "swap weapon"
+   'ö' -> "swap shield"
+   'h' -> "help"
+   'q' -> "quit"
       _ -> "unknown" -- there isn't actually a match for unknown, so it will just fall through to the catch-all
   where inputCaseIns = toLower input
 
@@ -537,14 +543,20 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
    --
    -- Getting a list of commands:
    | str == "help" = do
-      let newNaStr =  "Possible commands:\n"
-                   ++ "w for going forward"
-                   ++ "d for going right"
-                   ++ "s for going back"
-                   ++ "a for going left\n"
-                   ++ "f for turning right"
-                   ++ "r for turning around"
-                   ++ "e for turning left\n"
+      let newNaStr =  "Possible commands:\n\n"
+                   ++ "w for going forward\n"
+                   ++ "d for going right\n"
+                   ++ "s for going back\n"
+                   ++ "a for going left\n\n"
+                   ++ "f for turning right\n"
+                   ++ "r for turning around\n"
+                   ++ "e for turning left\n\n"
+                   ++ "space for attacking\n\n"
+                   ++ "i for picking up items\n"
+                   ++ "k for dropping your weapon\n"
+                   ++ "j for dropping your shield"
+                   ++ "l for swapping your weapon"
+                   ++ "ö for swapping your shield"
                    ++ "h for help"
                    ++ "q for quitting\n"
                    ++ getMapKey
