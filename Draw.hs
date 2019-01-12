@@ -90,6 +90,16 @@ filterHelper :: InputList -> [InnerLocation] -> InputList
 filterHelper = foldl (\acc x -> filter (\(a, _) -> x /= a) acc)
 
 
+-- if any two positions clash, take the one with the higher priority
+filterClashes :: InputList -> InputList
+filterClashes [] = []
+filterClashes ((pos, str) : rest)
+   | str `elem` [" ⯅ ", " ⯈ ", " ⯆ ", " ⯇ "] = expr
+   | str == " ☷ " = expr
+   | str `elem` [" B ", " C ", " G ", " H ", " O ", " R "] = expr
+   | str `elem` [" W ", " S ", " K "] = expr
+   | otherwise = (pos, str) : filterClashes rest
+  where expr = (pos, str) : filterClashes (filter (\(x, _) -> x /= pos) rest)
 
 
 -- draws the room
