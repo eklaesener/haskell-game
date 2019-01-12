@@ -232,8 +232,8 @@ drawMap (narratorStr, roomMap, winPos@(winRoom, winInner, _), (player, (playerRo
    let playerInv = Cha.inv player
    let equipPlayer = filter snd playerInv
    let tempItemList = nubBy (\(_, x) (_, y) -> x == y) itemList
-   let tempRoomContents = filter (\((x, _, _), _) -> x /= playerRoom) $ map convertItem tempItemList ++ map convertEnemy enemyList
-   let roomContents = filter (\((x, _, _), _) -> x /= playerRoom) [(ladderPos, Draw.ladder), (winPos, Draw.win)] ++ tempRoomContents
+   let tempRoomContents = filter (\((x, _, _), _) -> x == playerRoom) $ map convertItem tempItemList ++ map convertEnemy enemyList
+   let roomContents = filter (\((x, _, _), _) -> x == playerRoom) [(ladderPos, Draw.ladder), (winPos, Draw.win)] ++ tempRoomContents
    let drawList = (playerInner, Draw.player playerDir) : map (\((_, x, _), str) -> (x, str)) roomContents
    Draw.draw drawList
   where
