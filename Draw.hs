@@ -1,6 +1,9 @@
 module Draw where
 
 import Movement
+import qualified Item 
+import qualified Character as Cha
+import Data.Maybe (isJust, isNothing)
 
 type InputList = [(InnerLocation,String)]
 type DrawList = [String]
@@ -102,9 +105,26 @@ filterClashes ((pos, str) : rest)
   where expr = (pos, str) : filterClashes (filter (\(x, _) -> x /= pos) rest)
 
 
+
+-- displays the current status like hp, weapons and so on
+drawStats :: Cha.Character -> DrawList
+drawStats char@(Cha.Character charName hp _ currInv) = ["Your name: " ++ charName, "Your health: " ++ show hp, "Your weapon: " ++ weaponName ++ "  Damage: " ++ show weaponDmg ++ "  Range: " ++ show weaponRange, "Your shield: " ++ shieldName ++ "  Remaining strength: " ++ show shieldDur, "Your keys: " ++ show keys, "", ""]
+  where
+   (weaponName, weaponDmg, weaponRange) = case Cha.equippedWeapon char of
+      Nothing -> ("Fists", Item.fistDmg, 1)
+      Just (str, _, (Item.Weapon dmg rng)) -> (str, dmg, rng)
+   (shieldName, shieldDur) = case Cha.equippedShield char of
+      Nothing -> ("No shield", 0)
+      Just (str, _, (Item.Shield dur)) -> (str, dur)
+   keys = map (\((_, _, Item.Key room), _) -> room) (Cha.keyList char)
+
+
+
+
+
 -- draws the room
-draw :: InputList -> IO ()
-draw list = helper . drawing 0 . cleanList . filterClashes . foldr insert (filterDotList tempList) $ filterDoorList tempList ++ list
+draw :: String -> Cha.Character -> InputList -> IO ()
+draw narrStr char list = helper . drawing 0 narrStr (drawStats char) . cleanList . filterClashes . foldr insert (filterDotList tempList) $ filterDoorList tempList ++ list
   where
    tempList = map fst list
    -- takes one element out of the [DrawList] (one row), compresses the strings into one with unlines, filters out the newlines the unlines call has generated, prints that string to the command line, and recursively calls itself with the rest of the [DrawList]
@@ -116,9 +136,9 @@ cleanList :: InputList -> DrawList
 cleanList [] = []
 cleanList ((_, str):rest) = str : cleanList rest
 
--- takes a cleaned up list of strings and splits it in lists of roomSize
-drawing :: Int -> DrawList -> [DrawList]
-drawing count list
-            | count == roomSize = [list]
+-- takes a cleaned up list of strings, the narrator string and the stats and splits them in lists of roomSize
+drawing :: Int -> String -> DrawList -> DrawList -> [DrawList]
+drawing count narrStr stats list
+            | count == roomSize = (list ++ [narrStr]) : []
             | otherwise = let (comp1, comp2) = splitAt (roomSize + 1) list
-                          in comp1 : drawing (count + 1) comp2
+                          in (comp1 ++ [stats !! count]) : drawing (count + 1) narrStr stats comp2

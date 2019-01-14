@@ -235,7 +235,7 @@ drawMap (narratorStr, roomMap, winPos@(winRoom, winInner, _), (player, (playerRo
    let tempRoomContents = filter (\((x, _, _), _) -> x == playerRoom) $ map convertItem tempItemList ++ map convertEnemy enemyList
    let roomContents = filter (\((x, _, _), _) -> x == playerRoom) [(ladderPos, Draw.ladder), (winPos, Draw.win)] ++ tempRoomContents
    let drawList = (playerInner, Draw.player playerDir) : map (\((_, x, _), str) -> (x, str)) roomContents
-   Draw.draw drawList
+   Draw.draw narratorStr player drawList
   where
    convertItem ((_, _, Item.Weapon _ _), pos) = (pos, Draw.weapon)
    convertItem ((_, _, Item.Shield _), pos) = (pos, Draw.shield)
@@ -245,7 +245,7 @@ drawMap (narratorStr, roomMap, winPos@(winRoom, winInner, _), (player, (playerRo
 -- tracks the state of the game, returns only if you've won or lost
 gameState :: Game -> IO String
 gameState game = do
-   putStrLn . take 50 $ repeat '\n'
+   putStrLn . take 70 $ repeat '\n'
    drawMap game
    isNewInput <- hWaitForInput stdin 500
    if isNewInput
@@ -543,7 +543,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
    --
    -- Getting a list of commands:
    | str == "help" = do
-      let newNaStr =  "Possible commands:\n\n"
+      let str =    "Possible commands:\n\n"
                    ++ "w for going forward\n"
                    ++ "d for going right\n"
                    ++ "s for going back\n"
@@ -554,13 +554,15 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
                    ++ "space for attacking\n\n"
                    ++ "i for picking up items\n"
                    ++ "k for dropping your weapon\n"
-                   ++ "j for dropping your shield"
-                   ++ "l for swapping your weapon"
-                   ++ "ö for swapping your shield"
-                   ++ "h for help"
-                   ++ "q for quitting\n"
+                   ++ "j for dropping your shield\n"
+                   ++ "l for swapping your weapon\n"
+                   ++ "ö for swapping your shield\n"
+                   ++ "h for help\n"
+                   ++ "q for quitting\n\n"
                    ++ getMapKey
-      return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+      putStrLn $ str ++ "\nPress Enter to continue."
+      _ <- getLine
+      return $ Right (narratorstr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
    --
    -- Quitting:
    | str == "quit" = exitSuccess

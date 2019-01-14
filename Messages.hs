@@ -64,7 +64,8 @@ getOutOfReachMsg name = do
 
 outOfReachMsgs :: String -> [String]
 outOfReachMsgs name =
-   [""
+   ["You reach out your arms, but you still can't reach that  " ++ name ++ "!"
+   ,"Nope, that " ++ name ++ " is out of your reach!"
    ]
 
 
@@ -75,7 +76,8 @@ getVictorMsg name = do
 
 victorMsgs :: String -> [String]
 victorMsgs name =
-   [""
+   ["You easily defeated that " ++ name ++ ". On to the next task!"
+   ,"Congrats, you slew the evil " ++ name ++ "!"
    ]
 
 
@@ -86,7 +88,8 @@ getHitMsg name = do
 
 hitMsgs :: String -> [String]
 hitMsgs name =
-   [""
+   ["That was a hit! That " ++ name ++ " should take care."
+   ,"You actually managed to hit that " ++ name ++ ". Finally."
    ]
 
 
@@ -97,7 +100,8 @@ getShieldHitMsg name = do
 
 shieldHitMsgs :: String -> [String]
 shieldHitMsgs name =
-   [""
+   ["Oh no! That " ++ name ++ "'s shield absorbed the blow!"
+   ,"You hit " ++ name ++ "'s shield. Good job."
    ]
 
 
@@ -108,7 +112,7 @@ getShieldDestroyedMsg name = do
 
 shieldDestroyedMsgs :: String -> [String]
 shieldDestroyedMsgs name =
-   [""
+   ["That was it! You destroyed " ++ name ++ "'s shield."
    ]
 
 
@@ -119,7 +123,7 @@ getNoItemHereMsg = do
 
 noItemHereMsgs :: [String]
 noItemHereMsgs =
-   [""
+   ["There aren't any items here, as proven by that map."
    ]
 
 
@@ -130,7 +134,8 @@ getItemPickedUpMsg name = do
 
 itemPickedUpMsgs :: String -> [String]
 itemPickedUpMsgs name =
-   [""
+   ["You picked up a mighty " ++ name ++ "!"
+   ,"Congrats! You just picked up something useful, namely " ++ name ++ "."
    ]
 
 
@@ -141,7 +146,8 @@ getNoWeaponMsg = do
 
 noWeaponMsgs :: [String]
 noWeaponMsgs =
-   [""
+   ["You can't drop your fists, but if you really want to try, go stand in front of a monster..."
+   ,"You don't have a weapon you could drop!"
    ]
 
 
@@ -152,7 +158,7 @@ getWeaponDroppedMsg name = do
 
 weaponDroppedMsgs :: String -> [String]
 weaponDroppedMsgs name =
-   [""
+   ["You successfully dropped the " ++ name ++ "."
    ]
 
 
@@ -163,7 +169,7 @@ getNoShieldMsg = do
 
 noShieldMsgs :: [String]
 noShieldMsgs =
-   [""
+   ["You don't have a shield you could drop!"
    ]
 
 
@@ -174,7 +180,7 @@ getShieldDroppedMsg name = do
 
 shieldDroppedMsgs :: String -> [String]
 shieldDroppedMsgs name =
-   [""
+   ["You successfully dropped the " ++ name ++ "."
    ]
 
 
@@ -185,7 +191,7 @@ getWeaponSwapNotEnoughMsg = do
 
 weaponSwapNotEnoughMsgs :: [String]
 weaponSwapNotEnoughMsgs =
-   [""
+   ["You don't have any unequipped weapons in your inventory!"
    ]
 
 
@@ -196,7 +202,7 @@ getWeaponSwapOneMsg name = do
 
 weaponSwapOneMsgs :: String -> [String]
 weaponSwapOneMsgs name =
-   [""
+   ["You swapped from your fists to that vicious " ++ name ++ "."
    ]
 
 
@@ -207,7 +213,7 @@ getWeaponSwapTwoMsg oldName newName = do
 
 weaponSwapTwoMsgs :: String -> String -> [String]
 weaponSwapTwoMsgs oldName newName =
-   [""
+   ["You swapped that " ++ oldName ++ " for this " ++ newName ++ "."
    ]
 
 
@@ -218,7 +224,7 @@ getShieldSwapNotEnoughMsg = do
 
 shieldSwapNotEnoughMsgs :: [String]
 shieldSwapNotEnoughMsgs =
-   [""
+   ["You don't have any unequipped shields in your inventory!"
    ]
 
 
@@ -229,7 +235,7 @@ getShieldSwapOneMsg name = do
 
 shieldSwapOneMsgs :: String -> [String]
 shieldSwapOneMsgs name =
-   [""
+   ["You equipped that mighty " ++ name ++ "."
    ]
 
 
@@ -240,7 +246,7 @@ getShieldSwapTwoMsg oldName newName = do
 
 shieldSwapTwoMsgs :: String -> String -> [String]
 shieldSwapTwoMsgs oldName newName =
-   [""
+   ["You swapped that " ++ oldName ++ " for this " ++ newName ++ "."
    ]
 
 
