@@ -56,6 +56,18 @@ wallPushMsgs =
    ]
 
 
+getEnemyPushMsg :: IO String
+getEnemyPushMsg = do
+   _ <- newStdGen
+   gen <- getStdGen
+   return . (enemyPushMsgs!!) . head $ randomRs (0, length enemyPushMsgs - 1) gen
+
+enemyPushMsgs :: [String]
+enemyPushMsgs = 
+   ["You can't go through an enemy, dummy!"
+   ,"Why don't you just try going around?"
+   ]
+
 
 getOutOfReachMsg :: String -> IO String
 getOutOfReachMsg name = do
@@ -135,7 +147,7 @@ getItemPickedUpMsg name = do
 itemPickedUpMsgs :: String -> [String]
 itemPickedUpMsgs name =
    ["You picked up a mighty " ++ name ++ "!"
-   ,"Congrats! You just picked up something useful, namely " ++ name ++ "."
+   ,"Congrats! You just picked up a useful " ++ name ++ "."
    ]
 
 

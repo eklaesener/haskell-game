@@ -89,17 +89,20 @@ createPlayer roomMap = do
 
 
 -- creates a new, random item that isn't a ladder
-createItem :: Bool -> Mov.Map -> IO Item
-createItem checkForLocked roomMap = do
+createItem :: Bool -> Mov.Map -> Items -> IO Item
+createItem checkForLocked roomMap items = do
+   let keyList = filter (\(x, _) -> Item.isKey x) items
    gen <- newStdGen
    let item@(_, _, attr) = (Item.invItemList!!) . head $ randomRs (0, length Item.invItemList - 1) gen
    pos@(itemRoom, _, _) <- randomPosition checkForLocked roomMap
    case attr of
       Item.Key {Item.room = keyRoom} -- if the item is a key, some further checks are necessary
-         | itemRoom == keyRoom -> createItem checkForLocked roomMap
          -- the key was spawned in the room that it unlocks, rendering it inaccessible
-         | not (roomMap ! keyRoom) -> createItem checkForLocked roomMap
+         | itemRoom == keyRoom -> createItem checkForLocked roomMap items
          -- the key is useless, because the room it unlocks already is unlocked
+         | not (roomMap ! keyRoom) -> createItem checkForLocked roomMap items
+         -- the key already exists
+         | any (\((_, _, Item.Key x), _) -> x == keyRoom) keyList -> createItem checkForLocked roomMap items
       _ -> return (item, pos)
 
 -- creates a list of new items with length n
@@ -107,13 +110,8 @@ createItems :: Int -> Bool -> Mov.Map -> Items -> IO Items
 createItems n checkForLocked roomMap items
    | n < 0 = error $ "Negative value for n: " ++ show n
    | n == 0 = return items
-{-   | n == 1 = do
-      itemWithPos@(_, pos) <- createItem checkForLocked roomMap
-      if any (\(_, x) -> comparePos x pos) items -- checks if there already is another item at that position
-         then createItems n checkForLocked roomMap items
-         else return $ itemWithPos : items  -}
    | otherwise = do
-      itemWithPos@(_, pos) <- createItem checkForLocked roomMap
+      itemWithPos@(_, pos) <- createItem checkForLocked roomMap items
       if any (\(_, x) -> comparePos x pos) items
          then createItems n checkForLocked roomMap items
          else createItems (n - 1) checkForLocked roomMap (itemWithPos : items)
@@ -132,25 +130,22 @@ createLadder checkForLocked roomMap = do
 
 -- creates a random position, possibly disallowing locked rooms
 randomPosition :: Bool -> Mov.Map -> IO Mov.Position
-randomPosition checkForLocked roomMap
-   | checkForLocked = do
-      gen <- newStdGen
-      let loc = head . filter (\x -> not (roomMap ! x)) . randomRs ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) $ gen -- get a random unlocked room
-      gen2 <- newStdGen
-      let innerLoc = head $ randomRs ((0,0), (Mov.roomSize,Mov.roomSize)) gen2 -- get a random Mov.InnerLocation
-      gen3 <- newStdGen
-      let dir = head $ randoms gen3 :: Mov.Direction -- get a random Mov.Direction
-      let newPos = (loc, innerLoc, dir)
-      return newPos
-   | otherwise = do
-      gen <- newStdGen
-      let loc = head $ randomRs ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) gen :: (Int, Int) -- get a random room
-      gen2 <- newStdGen
-      let innerLoc = head $ randomRs ((0,0), (Mov.roomSize,Mov.roomSize)) gen2 :: (Int, Int)
-      gen3 <- newStdGen
-      let dir = head $ randoms gen3 :: Mov.Direction
-      let newPos = (loc, innerLoc, dir)
-      return newPos
+randomPosition checkForLocked roomMap = do
+   gen <- newStdGen
+   let innerLoc = head $ randomRs ((0,0), (Mov.roomSize,Mov.roomSize)) gen -- get a random Mov.InnerLocation
+   gen2 <- newStdGen
+   let dir = head $ randoms gen2 :: Mov.Direction -- get a random Mov.Direction
+   if checkForLocked
+      then do
+         gen3 <- newStdGen
+         let loc = head . filter (\x -> not (roomMap ! x)) . randomRs ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) $ gen3 -- get a random unlocked room
+         let newPos = (loc, innerLoc, dir)
+         return newPos
+      else do
+         gen3 <- newStdGen
+         let loc = head $ randomRs ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) gen3 :: (Int, Int) -- get a random room
+         let newPos = (loc, innerLoc, dir)
+         return newPos
 
 
 
@@ -221,7 +216,7 @@ initialize = do
    items <- createItems numItems False roomMap []
    ladderWithPos <- createLadder True roomMap
    putStr $ "\nWell, " ++ Cha.name player
-   putStrLn ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere?"
+   putStrLn ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere? And are those shrieks I hear?"
    return ("", roomMap, winPosition, playerWithPos, enemies, ladderWithPos, items)
 
 
@@ -333,20 +328,11 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
                return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
             -- we won't collide with anything, so everything is alright
             | not (any (newPlayerPos `comparePos`) (oldLadderPos : map snd enemyList)) -> return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
-            -- we did collide with something, if it's an enemy, make him attack the player or turn
+            -- we did collide with something, if it's an enemy, make him attack the player or move
             |  any (newPlayerPos `comparePos`) $ map snd enemyList -> do
                let enemyWithPos = head . filter (\(_, x) -> newPlayerPos `comparePos` x) $ enemyList
                enemyAction "attack" enemyWithPos oldGame
             -- we collided with the ladder
-            | Mov.isWall oldPlayerInner || not (Mov.isWall newPlayerInner) -> do
-               -- we know that the push can't go wrong, so we don't need case
-               let (Right newLadderPos@(newLadderRoom, newLadderInner, _)) = Mov.move newPlayerPos Mov.Advance
-               if comparePos newLadderPos winPos
-                  then return $ Left "You've finally gotten out of the caverns! Though you probably shouldn't explore caves like this one anymore...\n\n"
-                  else if Mov.isCorner newLadderInner
-                     then return $ Left "Idiot! You've maneuvered the ladder into an unrecoverable location. Guess you're not going to escape this cavern after all...\n\n"
-                     else return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemList)
-                           -- update ladder and player positions and return them
             | otherwise -> do -- we're okay to move, but need to check the same things as before
                let result2 = Mov.move newPlayerPos Mov.Advance
                case result2 of
@@ -361,8 +347,11 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
                      | roomMap ! newLadderRoom && not (Cha.hasKey newLadderRoom player) -> do
                         newNaStr <- Msg.getRoomLockedMsg
                         return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+                     | any (newLadderPos `comparePos`) $ map snd enemyList -> do
+                        newNaStr <- Msg.getEnemyPushMsg
+                        return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
                      | comparePos newLadderPos winPos -> return $ Left "You've finally gotten out of the caverns! Though you probably shouldn't explore caves like this one anymore...\n"
-                     | Mov.isCorner newLadderInner -> return $ Left "Idiot! You've maneuvered the ladder into an unrecoverable location. Guess you're not going to escape this cavern after all...\n"
+                     | Mov.isCorner newLadderInner -> return $ Left "You've actually managed to maneuver the ladder into an unrecoverable location. Great Job. Guess you're not going to escape this cavern after all...\n"
                      | otherwise -> return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemList)
                        -- update ladder and player positions and return them
    --
@@ -473,10 +462,10 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
       if null placeItemList
          then return $ Right (failStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
          else do
-            let (newItem, _) = head placeItemList
+            let (newItem, itemPos) = head placeItemList
             let newPlayer = Cha.pickupItem False newItem player
             successStr <- Msg.getItemPickedUpMsg $ Item.name newItem
-            return $ Right (successStr, roomMap, winPos, (newPlayer, oldPlayerPos), enemyList, (ladder, oldLadderPos), filter (/= (newItem, oldPlayerPos)) itemList)
+            return $ Right (successStr, roomMap, winPos, (newPlayer, oldPlayerPos), enemyList, (ladder, oldLadderPos), filter (/= (newItem, itemPos)) itemList)
    --
    -- Dropping the currently equipped weapon
    | str == "drop weapon" = do
@@ -699,9 +688,9 @@ enemyAction str (enemy, oldEnemyPos) oldGame@(narratorstr, roomMap, winPos, (pla
       if null placeItemList
          then enemyAction "random action" (enemy, oldEnemyPos) oldGame
          else do
-            let (newItem, _) = head placeItemList
+            let (newItem, itemPos) = head placeItemList
             let newEnemy = Cha.pickupItem False newItem enemy
-            return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (newEnemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), filter (/= (newItem, oldEnemyPos)) itemList)
+            return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (newEnemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), filter (/= (newItem, itemPos)) itemList)
    --
    -- Dropping the currently equipped weapon
    | str == "drop weapon" = do
@@ -779,5 +768,5 @@ main = do
    state <- gameState game
    hSetEcho stdin True
    hSetBuffering stdin LineBuffering
-   putStrLn . take 70 $ repeat '\n'
+   putStrLn . take 90 $ repeat '\n'
    putStrLn $ state ++ "\n"

@@ -112,10 +112,10 @@ drawStats char@(Cha.Character charName hp _ currInv) = ["Your name: " ++ charNam
   where
    (weaponName, weaponDmg, weaponRange) = case Cha.equippedWeapon char of
       Nothing -> ("Fists", Item.fistDmg, 1)
-      Just (str, _, (Item.Weapon dmg rng)) -> (str, dmg, rng)
+      Just (str, _, Item.Weapon dmg rng) -> (str, dmg, rng)
    (shieldName, shieldDur) = case Cha.equippedShield char of
       Nothing -> ("No shield", 0)
-      Just (str, _, (Item.Shield dur)) -> (str, dur)
+      Just (str, _, Item.Shield dur) -> (str, dur)
    keys = map (\((_, _, Item.Key room), _) -> room) (Cha.keyList char)
 
 
@@ -139,6 +139,6 @@ cleanList ((_, str):rest) = str : cleanList rest
 -- takes a cleaned up list of strings, the narrator string and the stats and splits them in lists of roomSize
 drawing :: Int -> String -> DrawList -> DrawList -> [DrawList]
 drawing count narrStr stats list
-            | count == roomSize = (list ++ [narrStr]) : []
+            | count == roomSize = [list ++ [narrStr]]
             | otherwise = let (comp1, comp2) = splitAt (roomSize + 1) list
                           in (comp1 ++ [stats !! count]) : drawing (count + 1) narrStr stats comp2

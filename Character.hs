@@ -54,9 +54,7 @@ isDead Character { hp = currHP }
 
 -- checks if the given character has a key unlocking the given room
 hasKey :: Mov.Location -> Character -> Bool
-hasKey room char = if numKeys char < 1
-                   then False
-                   else (room `elem`) . map ((\(_, _, Item.Key x) -> x) . fst) . keyList $ char
+hasKey room char = numKeys char >= 1 && ((room `elem`) . map ((\(_, _, Item.Key x) -> x) . fst) . keyList $ char)
 
 weaponList :: Character -> Inventory
 weaponList Character { inv = currInv } = filter (\(x, _) -> Item.isWeapon x) currInv
