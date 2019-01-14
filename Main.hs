@@ -217,6 +217,8 @@ initialize = do
    ladderWithPos <- createLadder True roomMap
    putStr $ "\nWell, " ++ Cha.name player
    putStrLn ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere? And are those shrieks I hear?"
+   putStrLn "Press Enter to start..."
+   _ <- getLine
    return ("", roomMap, winPosition, playerWithPos, enemies, ladderWithPos, items)
 
 
