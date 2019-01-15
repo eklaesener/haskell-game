@@ -101,14 +101,15 @@ filterClashes ((pos, str) : rest)
    | str == " ☷ " = expr
    | str `elem` [" B ", " C ", " G ", " H ", " O ", " R "] = expr
    | str `elem` [" W ", " S ", " K "] = expr
-   | otherwise = (pos, str) : filterClashes rest
+   | otherwise = expr
+--   | otherwise = (pos, str) : filterClashes rest
   where expr = (pos, str) : filterClashes (filter (\(x, _) -> x /= pos) rest)
 
 
 
 -- displays the current status like hp, weapons and so on
 drawStats :: Cha.Character -> DrawList
-drawStats char@(Cha.Character charName hp _ currInv) = ["Your name: " ++ charName, "Your health: " ++ show hp, "Your weapon: " ++ weaponName ++ "  Damage: " ++ show weaponDmg ++ "  Range: " ++ show weaponRange, "Your shield: " ++ shieldName ++ "  Remaining strength: " ++ show shieldDur, "Your keys: " ++ show keys, "", ""]
+drawStats char@(Cha.Character charName hp _ currInv) = ["Your name: " ++ charName, "Your health: " ++ show hp, weaponStats, "Other weapons: " ++ weapons, shieldStats, "Other shields: " ++ shields, "Your keys: " ++ show keys]
   where
    (weaponName, weaponDmg, weaponRange) = case Cha.equippedWeapon char of
       Nothing -> ("Fists", Item.fistDmg, 1)
@@ -117,6 +118,10 @@ drawStats char@(Cha.Character charName hp _ currInv) = ["Your name: " ++ charNam
       Nothing -> ("No shield", 0)
       Just (str, _, Item.Shield dur) -> (str, dur)
    keys = map (\((_, _, Item.Key room), _) -> room) (Cha.keyList char)
+   weaponStats = "Your weapon: " ++ weaponName ++ " Damage: " ++ show weaponDmg ++ " Range: " ++ show weaponRange
+   weapons = unwords . map Item.name . filter Item.isWeapon . map fst . filter (not . snd) $ currInv
+   shieldStats = "Your shield: " ++ shieldName ++ "  Remaining strength: " ++ show shieldDur
+   shields = unwords . map Item.name . filter Item.isShield . map fst . filter (not . snd) $ currInv
 
 
 
@@ -139,6 +144,6 @@ cleanList ((_, str):rest) = str : cleanList rest
 -- takes a cleaned up list of strings, the narrator string and the stats and splits them in lists of roomSize
 drawing :: Int -> String -> DrawList -> DrawList -> [DrawList]
 drawing count narrStr stats list
-            | count == roomSize = [list ++ [narrStr]]
+            | count == roomSize = [list ++ ["   ", narrStr]]
             | otherwise = let (comp1, comp2) = splitAt (roomSize + 1) list
-                          in (comp1 ++ [stats !! count]) : drawing (count + 1) narrStr stats comp2
+                          in (comp1 ++ ["   ", stats !! count]) : drawing (count + 1) narrStr stats comp2
