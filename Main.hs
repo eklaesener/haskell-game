@@ -567,7 +567,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
 
 -- and now the possible actions for enemies
 enemyAction :: String -> Enemy -> Game -> IO (Either String Game)
-enemyAction str (enemy, oldEnemyPos) oldGame@(narratorstr, roomMap, winPos, (player, playerPos), enemyList, (ladder, ladderPos), itemList)
+enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, _, _)) oldGame@(narratorstr, roomMap, winPos, (player, playerPos), enemyList, (ladder, ladderPos), itemList)
    | str == "go forward" = do -- much the same as above
       let result = Mov.move oldEnemyPos Mov.Advance
       case result of
@@ -576,7 +576,7 @@ enemyAction str (enemy, oldEnemyPos) oldGame@(narratorstr, roomMap, winPos, (pla
             | resStr == "Door blocked" -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
          Right newEnemyPos@(newEnemyRoom, _, _)
             -- TODO: decide if enemies should be able to enter locked rooms
-            | roomMap ! newEnemyRoom -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
+            | roomMap ! newEnemyRoom && not (roomMap ! oldEnemyRoom) -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
             -- makes sure there isn't anything on the new position
             | not (any (newEnemyPos `comparePos`) (ladderPos : playerPos : map snd enemyList)) -> return $
                Right (narratorstr, roomMap, winPos, (player, playerPos), (enemy, newEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
