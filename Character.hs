@@ -42,8 +42,14 @@ setEquipped :: Bool -> Item.Item -> Character -> Character
 setEquipped val item char@Character { inv = oldInv } = char { inv = newInv }
   where list = filter (\(x,y) -> x == item && y /= val) oldInv
         newInv = if null list
-                 then error $ "Character " ++ show char ++ " doesn't have an unequipped " ++ show item ++ "!"
-                 else (item, val) : filter (/= head list) oldInv
+                 then error $ "Character " ++ show char ++ " doesn't have an (un-)equipped " ++ show item ++ "!"
+                 else filterFirst (/= head list) oldInv ++ [(item, val)]
+
+filterFirst :: (a -> Bool) -> [a] -> [a]
+filterFirst _ [] = []
+filterFirst p (x:xs)
+   | p x = x : filterFirst p xs
+   | otherwise = xs
 
 
 isDead :: Character -> Bool

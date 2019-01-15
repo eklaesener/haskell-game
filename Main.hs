@@ -498,8 +498,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
          return $ Right (failStr, roomMap, winPos, (player, oldPlayerPos),  enemyList, (ladder, oldLadderPos), itemList)
       else do
          let unUsedWeaponList = map fst . filter (not . snd) $ Cha.weaponList player
-         gen <- newStdGen
-         let newWeapon = (unUsedWeaponList!!) . head . randomRs (0, length unUsedWeaponList - 1) $ gen
+         let newWeapon = head unUsedWeaponList
          let oldWeapon = Cha.equippedWeapon player
          case oldWeapon of
             Nothing -> do
@@ -518,8 +517,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
          return $ Right (failStr, roomMap, winPos, (player, oldPlayerPos),  enemyList, (ladder, oldLadderPos), itemList)
       else do
          let unUsedShieldList = map fst . filter (not . snd) $ Cha.shieldList player
-         gen <- newStdGen
-         let newShield = (unUsedShieldList!!) . head . randomRs (0, length unUsedShieldList - 1) $ gen
+         let newShield = head unUsedShieldList
          let oldShield = Cha.equippedShield player
          case oldShield of
             Nothing -> do
