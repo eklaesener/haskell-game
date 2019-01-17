@@ -1,14 +1,12 @@
 import Data.Array (listArray, (!))
 import Data.Char (toLower)
 import Data.List (minimumBy, nubBy)
-import Data.Maybe (isJust, isNothing)
-import Data.Either (fromRight)
+import Data.Maybe (isJust)
 import System.IO
 import System.Exit
 import System.Posix.Process (exitImmediately)
 import System.Random
-import Control.Concurrent (threadDelay, forkFinally)
---import Control.Concurrent.MVar.Strict
+import Control.Concurrent (threadDelay, forkIO)
 import Control.Concurrent.MVar
 import qualified Control.Monad.Random as Rand
 import qualified Movement as Mov
@@ -229,10 +227,7 @@ initialize = do
 
 -- uses the module Draw to create a representation of the room's contents on the command line
 drawMap :: Game -> IO ()
-drawMap (narratorStr, roomMap, winPos@(winRoom, winInner, _), (player, (playerRoom, playerInner, playerDir)), enemyList, (_, ladderPos@(ladderRoom, ladderInner, _)), itemList) = do
-   let playerHP = Cha.hp player
-   let playerInv = Cha.inv player
-   let equipPlayer = filter snd playerInv
+drawMap (narratorStr, _, winPos, (player, (playerRoom, playerInner, playerDir)), enemyList, (_, ladderPos), itemList) = do
    let tempItemList = nubBy (\(_, x) (_, y) -> x == y) itemList
    let tempRoomContents = filter (\((x, _, _), _) -> x == playerRoom) $ map convertItem tempItemList ++ map convertEnemy enemyList
    let roomContents = filter (\((x, _, _), _) -> x == playerRoom) [(ladderPos, Draw.ladder), (winPos, Draw.win)] ++ tempRoomContents
@@ -247,18 +242,19 @@ drawMap (narratorStr, roomMap, winPos@(winRoom, winInner, _), (player, (playerRo
 
 
 
-quit :: IO ()
-quit = do
+quit :: String -> IO ()
+quit str = do
    hSetEcho stdin True
    hSetBuffering stdin LineBuffering
-   putStrLn "\n"
+   putStrLn $ replicate 90 '\n'
+   putStrLn $ str ++ "\n"
    exitImmediately ExitSuccess
 
 
 -- tracks the state of the game, returns only if you've won or lost
 gameState :: MVar Game -> IO ()
 gameState gameVar = do
-   forkFinally (enemyGameState gameVar) (\x -> exitSuccess)
+   _ <- forkIO (enemyGameState gameVar)
    playerGameState gameVar
    
 
@@ -275,10 +271,7 @@ playerGameState gameVar = do
          game <- takeMVar gameVar
          playerResultUnformatted <- playerAction (shortInput input) game
          case playerResultUnformatted of
-            Left str -> do
-               putStrLn $ replicate 90 '\n'
-               putStrLn str
-               quit
+            Left str -> quit str
             Right newGame -> putMVar gameVar newGame >> playerGameState gameVar
       else playerGameState gameVar
    
@@ -288,10 +281,7 @@ enemyGameState gameVar = do
    game <- takeMVar gameVar
    enemyResultUnformatted <- cycleEnemies game
    case enemyResultUnformatted of
-      Left str -> do
-         putStrLn $ replicate 90 '\n'
-         putStrLn str
-         quit
+      Left str -> quit str
       Right newGame -> do
          putMVar gameVar newGame
          threadDelay 500000
@@ -301,10 +291,8 @@ enemyGameState gameVar = do
 -- cycles through the list of enemies, performing one action each
 cycleEnemies :: Game -> IO (Either String Game)
 cycleEnemies game@(_, _, _, _, enemyList, _, _)
-   | null enemyList = do
-      return $ Right game
-   | otherwise = do
-      helper (head enemyList) (tail enemyList) game
+   | null enemyList = return $ Right game
+   | otherwise = helper (head enemyList) (tail enemyList) game
   where
    helper enemyWithPos rest oldGame@(_, roomMap, winPos, _, _, ladderWithPos, _)
       | null rest = do
@@ -349,7 +337,7 @@ shortInput input = case inputCaseIns of
 
 -- decide if the action is allowed and if it is, perform it
 playerAction :: String -> Game -> IO (Either String Game)
-playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_, oldPlayerInner, _)), enemyList, (ladder, oldLadderPos@(_, _, ladderDir)), itemList)
+playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos@(_, _, ladderDir)), itemList)
    | str == "go forward" = do
       let result = Mov.move oldPlayerPos Mov.Advance
       case result of
@@ -360,7 +348,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
             | resStr == "Door blocked" -> do
                newNaStr <- Msg.getDoorBlockedMsg
                return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
-         Right newPlayerPos@(newPlayerRoom, newPlayerInner, _)
+         Right newPlayerPos@(newPlayerRoom, _, _)
             | roomMap ! newPlayerRoom && not (Cha.hasKey newPlayerRoom player) -> do -- if the new room is locked and the player doesn't have the right key, don't allow the move
                newNaStr <- Msg.getRoomLockedMsg
                return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
@@ -434,6 +422,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
             let (nextEnemy, nextEnemyPos) = minimumBy (\(_, x) (_, y) -> compare (x `Mov.distanceTo` oldPlayerPos) (y `Mov.distanceTo` oldPlayerPos)) losList
             let playerWeapon = Cha.equippedWeapon player
             let enemyShield = Cha.equippedShield nextEnemy
+            let enemyInv = map fst $ Cha.inv nextEnemy
             failMsg <- Msg.getOutOfReachMsg $ Cha.name nextEnemy
             winMsg <- Msg.getVictorMsg $ Cha.name nextEnemy
             hitMsg <- Msg.getHitMsg $ Cha.name nextEnemy
@@ -447,7 +436,10 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
                         Nothing -> do
                            let newEnemy = Cha.reduceHealth dmg nextEnemy
                            if Cha.isDead newEnemy
-                              then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                              then do
+                              let newItemList = map (\x -> (x, nextEnemyPos)) enemyInv ++ itemList
+                              let newEnemyList = filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList
+                              return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyList, (ladder, oldLadderPos), newItemList)
                               else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
                         Just oldShield -> do
                            let newShield = Item.reduceDur dmg oldShield
@@ -465,7 +457,10 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
                      Nothing -> do
                         let newEnemy = Cha.reduceHealth Item.fistDmg nextEnemy
                         if Cha.isDead newEnemy
-                           then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                           then do
+                              let newItemList = map (\x -> (x, nextEnemyPos)) enemyInv ++ itemList
+                              let newEnemyList = filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList
+                              return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyList, (ladder, oldLadderPos), newItemList)
                            else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
                      Just oldShield -> do
                         let newShield = Item.reduceDur Item.fistDmg oldShield
@@ -480,7 +475,10 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
                      Nothing -> do
                         let newEnemy = Cha.reduceHealth dmg nextEnemy
                         if Cha.isDead newEnemy
-                           then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                           then do
+                              let newItemList = map (\x -> (x, nextEnemyPos)) enemyInv ++ itemList
+                              let newEnemyList = filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList
+                              return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyList, (ladder, oldLadderPos), newItemList)
                            else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
                      Just oldShield -> do
                         let newShield = Item.reduceDur dmg oldShield
@@ -568,7 +566,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
    --
    -- Getting a list of commands:
    | str == "help" = do
-      let str =    "Possible commands:\n\n"
+      let help =   "Possible commands:\n\n"
                    ++ "w for going forward\n"
                    ++ "d for going right\n"
                    ++ "s for going back\n"
@@ -585,7 +583,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
                    ++ "h for help\n"
                    ++ "q for quitting\n\n"
                    ++ getMapKey
-      putStrLn $ str ++ "\nPress Enter to continue."
+      putStrLn $ help ++ "\nPress Enter to continue."
       _ <- getLine
       return $ Right (narratorstr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
    --

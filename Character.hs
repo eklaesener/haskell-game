@@ -122,15 +122,13 @@ modifyInv isEquipped oldItem newItem char@Character { inv = oldInv }
 pickupItem :: Bool -> Item.Item -> Character -> Character
 pickupItem isEquipped item@(_, isInventory, _) char@Character { inv = oldInv }
    | not isInventory = error "Item can't be picked up"
---   | item `elem` oldItems = error "Item already in Inventory"
    | otherwise = char { inv = (item, isEquipped) : oldInv }
---  where (oldItems, _) = unzip oldInv
 
 
 dropItem :: Item.Item -> Character -> Character
 dropItem item char@Character { inv = oldInv }
    | item `notElem` oldItems = error "Item not in Inventory"
-   | otherwise = char { inv = filter (\(x, _) -> x /= item) oldInv }
+   | otherwise = char { inv = filterFirst (\(x, y) -> x /= item || not y) oldInv }
   where (oldItems, _) = unzip oldInv
 
 
