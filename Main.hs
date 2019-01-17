@@ -4,9 +4,10 @@ import Data.List (minimumBy, nubBy)
 import Data.Maybe (isJust, isNothing)
 import Data.Either (fromRight)
 import System.IO
-import System.Exit (exitSuccess)
+import System.Exit
+import System.Posix.Process (exitImmediately)
 import System.Random
-import Control.Concurrent (threadDelay, forkIO)
+import Control.Concurrent (threadDelay, forkFinally)
 --import Control.Concurrent.MVar.Strict
 import Control.Concurrent.MVar
 import qualified Control.Monad.Random as Rand
@@ -244,10 +245,20 @@ drawMap (narratorStr, roomMap, winPos@(winRoom, winInner, _), (player, (playerRo
    convertEnemy (enemy, pos) = (pos, Draw.enemy $ Cha.name enemy)
 
 
+
+
+quit :: IO ()
+quit = do
+   hSetEcho stdin True
+   hSetBuffering stdin LineBuffering
+   putStrLn "\n"
+   exitImmediately ExitSuccess
+
+
 -- tracks the state of the game, returns only if you've won or lost
 gameState :: MVar Game -> IO ()
 gameState gameVar = do
-   forkIO $ enemyGameState gameVar
+   forkFinally (enemyGameState gameVar) (\x -> exitSuccess)
    playerGameState gameVar
    
 
@@ -264,46 +275,53 @@ playerGameState gameVar = do
          game <- takeMVar gameVar
          playerResultUnformatted <- playerAction (shortInput input) game
          case playerResultUnformatted of
-            Left str -> putStrLn (take 90 $ repeat '\n') >> putStrLn str >> exitSuccess
+            Left str -> do
+               putStrLn $ replicate 90 '\n'
+               putStrLn str
+               quit
             Right newGame -> putMVar gameVar newGame >> playerGameState gameVar
       else playerGameState gameVar
    
 
 enemyGameState :: MVar Game -> IO ()
 enemyGameState gameVar = do
-   enemyResultUnformatted <- cycleEnemies gameVar
+   game <- takeMVar gameVar
+   enemyResultUnformatted <- cycleEnemies game
    case enemyResultUnformatted of
-      Left str -> putStrLn (take 90 $ repeat '\n') >> putStrLn str
-      _ -> threadDelay 500000 >> enemyGameState gameVar
+      Left str -> do
+         putStrLn $ replicate 90 '\n'
+         putStrLn str
+         quit
+      Right newGame -> do
+         putMVar gameVar newGame
+         threadDelay 500000
+         enemyGameState gameVar
 
 
 -- cycles through the list of enemies, performing one action each
-cycleEnemies :: MVar Game -> IO (Either String (MVar Game))
-cycleEnemies gameVar = do
-   game@(_, _, _, _, enemyList, _, _) <- readMVar gameVar
-   if null enemyList
-      then return $ Right gameVar
-      else helper (head enemyList) (tail enemyList) gameVar
+cycleEnemies :: Game -> IO (Either String Game)
+cycleEnemies game@(_, _, _, _, enemyList, _, _)
+   | null enemyList = do
+      return $ Right game
+   | otherwise = do
+      helper (head enemyList) (tail enemyList) game
   where
-   helper enemyWithPos rest gameVar
+   helper enemyWithPos rest oldGame@(_, roomMap, winPos, _, _, ladderWithPos, _)
       | null rest = do
-         oldGame@(_, roomMap, winPos, _, _, ladderWithPos, _) <- takeMVar gameVar
          result <- enemyAction "random action" enemyWithPos oldGame
          case result of
             Left str -> return $ Left str
             Right (newNarrStr, _, _, newPlayerWithPos, newEnemyWithPos : tempEnemyList, _, newItemList) -> do
                let newEnemyList = newEnemyWithPos : filter (/= enemyWithPos) tempEnemyList
-               putMVar gameVar (newNarrStr, roomMap, winPos, newPlayerWithPos, newEnemyList, ladderWithPos, newItemList)
-               return $ Right gameVar
+               return $ Right (newNarrStr, roomMap, winPos, newPlayerWithPos, newEnemyList, ladderWithPos, newItemList)
       | otherwise = do
-         oldGame@(_, roomMap, winPos, _, _, ladderWithPos, _) <- takeMVar gameVar
          result <- enemyAction "random action" enemyWithPos oldGame
          case result of
             Left str -> return $ Left str
             Right (newNarrStr, _, _, newPlayerWithPos, newEnemyWithPos : tempEnemyList, _, newItemList) -> do
                let newEnemyList = newEnemyWithPos : filter (/= enemyWithPos) tempEnemyList
-               putMVar gameVar (newNarrStr, roomMap, winPos, newPlayerWithPos, newEnemyList, ladderWithPos, newItemList)
-               helper (head rest) (tail rest) gameVar
+               let newGame = (newNarrStr, roomMap, winPos, newPlayerWithPos, newEnemyList, ladderWithPos, newItemList)
+               helper (head rest) (tail rest) newGame
 
 
 -- translates the keys into playerAction strings
@@ -572,7 +590,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(_
       return $ Right (narratorstr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
    --
    -- Quitting:
-   | str == "quit" = exitSuccess
+   | str == "quit" = return $ Left "You successfully quit the game. Bye!"
    --
    -- Unknown commands:
    | otherwise = do
@@ -784,6 +802,3 @@ main = do
    hSetEcho stdin False
    hSetBuffering stdin NoBuffering
    gameState gameVar
-   hSetEcho stdin True
-   hSetBuffering stdin LineBuffering
-   putStrLn "\n"
