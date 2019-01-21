@@ -33,22 +33,45 @@ win = " ⭙ "
 
 
 weapon :: String
-weapon = " W "
+weapon = " ⚔ "
 
 shield :: String
-shield = " S "
+shield = " 🛡 "
 
 key :: String
-key = " K "
+key = " 🔑 "
 
 
-enemy :: String -> String
-enemy "Berserker" = " B "
-enemy "Cave Troll" = " C "
-enemy "Ghoul" = " G "
-enemy "Hobgoblin" = " H "
-enemy "Orc" = " O "
-enemy "Wraith" = " R "
+enemy :: String -> Direction -> String
+enemy "Berserker" North = " ᕕ "
+enemy "Berserker" East = " ᕗ "
+enemy "Berserker" South = " ᕓ "
+enemy "Berserker" West = " ᕙ "
+
+enemy "Cave Troll" North = " ᘯ "
+enemy "Cave Troll" East = " ᘰ "
+enemy "Cave Troll" South = " ᘮ "
+enemy "Cave Troll" West = " ᘳ "
+
+enemy "Ghoul" North = " ᘺ "
+enemy "Ghoul" East = " ᘿ "
+enemy "Ghoul" South = " ᘻ "
+enemy "Ghoul" West = " ᘼ "
+
+enemy "Hobgoblin" North = " ᗑ "
+enemy "Hobgoblin" East = " ᗒ "
+enemy "Hobgoblin" South = " ᗐ "
+enemy "Hobgoblin" West = " ᗕ "
+
+enemy "Orc" North = " ᕱ "
+enemy "Orc" East = " ᕲ "
+enemy "Orc" South = " ᕰ "
+enemy "Orc" West = " ᕳ "
+
+enemy "Wraith" North = " ᗅ "
+enemy "Wraith" East = " ᗆ "
+enemy "Wraith" South = " ᗄ "
+enemy "Wraith" West = " ᗉ "
 
 
 

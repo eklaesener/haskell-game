@@ -185,7 +185,18 @@ enemyNames =
 getMapKey :: String
 getMapKey =  "Key:\nYour position: ⯅ ⯈ ⯆ ⯇\n"
           ++ "The doors: ▯\n"
-          ++ "The ladder: ☷\n"
+          ++ "The ladder: ☷\n\n"
+          ++ "The enemies:\n"
+          ++ "Berserkers: ᕕ ᕗ ᕓ ᕙ\n"
+          ++ "Cave Trolls: ᘯ ᘰ ᘮ ᘳ\n"
+          ++ "Ghouls: ᘺ ᘿ ᘻ ᘼ\n"
+          ++ "Hobgoblins: ᗑ ᗒ ᗐ ᗕ\n"
+          ++ "Orcs: ᕱ ᕲ ᕰ ᕳ\n"
+          ++ "Wraiths: ᗅ ᗆ ᗄ ᗉ\n\n"
+          ++ "Items:\n"
+          ++ "Weapons: ⚔\n"
+          ++ "Shields: 🛡\n"
+          ++ "Keys: 🔑\n\n"
           ++ "And the cave-in: ⭙\n"
 
 
@@ -237,7 +248,7 @@ drawMap (narratorStr, _, winPos, (player, (playerRoom, playerInner, playerDir)),
    convertItem ((_, _, Item.Weapon _ _), pos) = (pos, Draw.weapon)
    convertItem ((_, _, Item.Shield _), pos) = (pos, Draw.shield)
    convertItem ((_, _, Item.Key _), pos) = (pos, Draw.key)
-   convertEnemy (enemy, pos) = (pos, Draw.enemy $ Cha.name enemy)
+   convertEnemy (enemy, pos@(_, _, dir)) = (pos, Draw.enemy (Cha.name enemy) dir)
 
 
 
