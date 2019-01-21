@@ -428,6 +428,8 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos), 
             hitMsg <- Msg.getHitMsg $ Cha.name nextEnemy
             shieldHitMsg <- Msg.getShieldHitMsg $ Cha.name nextEnemy
             shieldDestroyedMsg <- Msg.getShieldDestroyedMsg $ Cha.name nextEnemy
+            let newItemList = map (\x -> (x, nextEnemyPos)) enemyInv ++ itemList
+            let newEnemyList = filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList
             if null frontList
                then case playerWeapon of
                   Nothing -> return $ Right (failMsg, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
@@ -436,10 +438,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos), 
                         Nothing -> do
                            let newEnemy = Cha.reduceHealth dmg nextEnemy
                            if Cha.isDead newEnemy
-                              then do
-                              let newItemList = map (\x -> (x, nextEnemyPos)) enemyInv ++ itemList
-                              let newEnemyList = filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList
-                              return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyList, (ladder, oldLadderPos), newItemList)
+                              then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyList, (ladder, oldLadderPos), newItemList)
                               else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
                         Just oldShield -> do
                            let newShield = Item.reduceDur dmg oldShield
@@ -457,10 +456,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos), 
                      Nothing -> do
                         let newEnemy = Cha.reduceHealth Item.fistDmg nextEnemy
                         if Cha.isDead newEnemy
-                           then do
-                              let newItemList = map (\x -> (x, nextEnemyPos)) enemyInv ++ itemList
-                              let newEnemyList = filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList
-                              return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyList, (ladder, oldLadderPos), newItemList)
+                           then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyList, (ladder, oldLadderPos), newItemList)
                            else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
                      Just oldShield -> do
                         let newShield = Item.reduceDur Item.fistDmg oldShield
@@ -475,10 +471,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos), 
                      Nothing -> do
                         let newEnemy = Cha.reduceHealth dmg nextEnemy
                         if Cha.isDead newEnemy
-                           then do
-                              let newItemList = map (\x -> (x, nextEnemyPos)) enemyInv ++ itemList
-                              let newEnemyList = filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList
-                              return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyList, (ladder, oldLadderPos), newItemList)
+                           then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyList, (ladder, oldLadderPos), newItemList)
                            else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
                      Just oldShield -> do
                         let newShield = Item.reduceDur dmg oldShield

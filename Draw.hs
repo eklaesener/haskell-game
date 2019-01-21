@@ -3,7 +3,6 @@ module Draw where
 import Movement
 import qualified Item 
 import qualified Character as Cha
-import Data.Maybe (isJust, isNothing)
 
 type InputList = [(InnerLocation,String)]
 type DrawList = [String]
