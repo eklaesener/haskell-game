@@ -258,13 +258,13 @@ gameState gameVar = do
    playerGameState gameVar
    
 
-
+-- the player thread
 playerGameState :: MVar Game -> IO ()
 playerGameState gameVar = do
    tempGame <- readMVar gameVar
    putStrLn . take 70 $ repeat '\n'
    drawMap tempGame
-   isNewInput <- hWaitForInput stdin 500
+   isNewInput <- hWaitForInput stdin 100
    if isNewInput
       then do
          input <- getChar
@@ -276,6 +276,7 @@ playerGameState gameVar = do
       else playerGameState gameVar
    
 
+-- the enemy thread
 enemyGameState :: MVar Game -> IO ()
 enemyGameState gameVar = do
    game <- takeMVar gameVar
@@ -608,7 +609,7 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, _, _)) oldGame@(narratorstr, 
             -- checks if the obstacle is the player
             | comparePos newEnemyPos playerPos -> enemyAction "attack" (enemy, oldEnemyPos) oldGame
             | otherwise -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
-   | str == "sprint forward" = do
+   | str == "teleport forward" = do
       tempGameRes <- enemyAction "go forward" (enemy, oldEnemyPos) oldGame
       case tempGameRes of
          Left resStr -> return $ Left resStr
