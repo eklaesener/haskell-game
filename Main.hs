@@ -69,11 +69,6 @@ createEnemies :: Int -> Bool -> Mov.Map -> Enemies -> IO Enemies
 createEnemies n checkForLocked roomMap enemies
    | n < 0 = error $ "Negative value for n: " ++ show n
    | n == 0 = return enemies
-{-   | n == 1 = do
-      enemyWithPos@(_, pos) <- createCharacter checkForLocked roomMap
-      if any (\(_, x) -> comparePos x pos) enemies -- checks if there already is another enemy at that position
-         then createEnemies n checkForLocked roomMap enemies
-         else return $ enemyWithPos : enemies  -}
    | otherwise = do
       enemyWithPos@(_, pos) <- createCharacter checkForLocked roomMap
       if any (\(_, x) -> comparePos x pos) enemies
@@ -232,8 +227,7 @@ initialize = do
    keys <- createKeys False roomMap
    let itemList = keys ++ items
    ladderWithPos <- createLadder True roomMap
-   putStr $ "\nWell, " ++ Cha.name player
-   putStrLn ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere? And are those shrieks I hear?"
+   putStrLn $ Msg.introMsg (Cha.name player)
    putStrLn "Press Enter to start..."
    _ <- getLine
    newMVar ("", roomMap, winPosition, playerWithPos, enemies, ladderWithPos, itemList)
@@ -615,7 +609,6 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, _, _)) oldGame@(narratorstr, 
             | resStr == "Wall" -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
             | resStr == "Door blocked" -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
          Right newEnemyPos@(newEnemyRoom, _, _)
-            -- TODO: decide if enemies should be able to enter locked rooms
             | roomMap ! newEnemyRoom && not (roomMap ! oldEnemyRoom) -> enemyAction "turn randomly" (enemy, oldEnemyPos) oldGame
             -- makes sure there isn't anything on the new position
             | not (any (newEnemyPos `comparePos`) (ladderPos : playerPos : map snd enemyList)) -> return $

@@ -2,6 +2,17 @@ module Messages where
 
 import System.Random
 
+
+
+
+introMsg :: String -> String
+introMsg name =  "\nWell, "
+              ++ name
+              ++ ", you're in quite a pickle right now.\n"
+              ++ "Remember? You were exploring a cave, but the floor you were standing on fell down and you with it...\n"
+              ++ "And, I'm afraid, these lower caverns are said to be haunted by various monsters.\n"
+              ++ "Maybe there's a ladder here somewhere, to get back up?"
+
 getWallMsg :: IO String
 getWallMsg = do
    gen <- newStdGen
