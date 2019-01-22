@@ -89,6 +89,9 @@ isKey :: Item -> Bool
 isKey (_, _, Key _) = True
 isKey _ = False
 
+genKey :: Mov.Location -> Item
+genKey loc = ("Key", True, Key loc)
+
 
 ladder :: Item
 ladder = ("Ladder", False, Ladder)

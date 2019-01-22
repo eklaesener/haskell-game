@@ -1,4 +1,4 @@
-import Data.Array (listArray, (!))
+import Data.Array (listArray, (!), assocs)
 import Data.Char (toLower)
 import Data.List (minimumBy, nubBy)
 import Data.Maybe (isJust)
@@ -91,22 +91,15 @@ createPlayer roomMap = do
    return (player, pos)
 
 
--- creates a new, random item that isn't a ladder
-createItem :: Bool -> Mov.Map -> Items -> IO Item
-createItem checkForLocked roomMap items = do
-   let keyList = filter (\(x, _) -> Item.isKey x) items
+-- creates a new, random item that isn't a ladder or a key
+createItem :: Bool -> Mov.Map -> IO Item
+createItem checkForLocked roomMap = do
    gen <- newStdGen
-   let item@(_, _, attr) = (Item.invItemList!!) . head $ randomRs (0, length Item.invItemList - 1) gen
-   pos@(itemRoom, _, _) <- randomPosition checkForLocked roomMap
-   case attr of
-      Item.Key {Item.room = keyRoom} -- if the item is a key, some further checks are necessary
-         -- the key was spawned in the room that it unlocks, rendering it inaccessible
-         | itemRoom == keyRoom -> createItem checkForLocked roomMap items
-         -- the key is useless, because the room it unlocks already is unlocked
-         | not (roomMap ! keyRoom) -> createItem checkForLocked roomMap items
-         -- the key already exists
-         | any (\((_, _, Item.Key x), _) -> x == keyRoom) keyList -> createItem checkForLocked roomMap items
-      _ -> return (item, pos)
+   let item = (list!!) . head $ randomRs (0, length list - 1) gen
+   pos <- randomPosition checkForLocked roomMap
+   return (item, pos)
+  where
+   list = filter (not . Item.isKey) Item.invItemList
 
 -- creates a list of new items with length n
 createItems :: Int -> Bool -> Mov.Map -> Items -> IO Items
@@ -114,11 +107,20 @@ createItems n checkForLocked roomMap items
    | n < 0 = error $ "Negative value for n: " ++ show n
    | n == 0 = return items
    | otherwise = do
-      itemWithPos@(_, pos) <- createItem checkForLocked roomMap items
+      itemWithPos@(_, pos) <- createItem checkForLocked roomMap
       if any (\(_, x) -> comparePos x pos) items
          then createItems n checkForLocked roomMap items
          else createItems (n - 1) checkForLocked roomMap (itemWithPos : items)
 
+
+createKeys :: Bool -> Mov.Map -> IO Items
+createKeys checkForLocked roomMap = helper (map fst . filter snd . assocs $ roomMap) []
+  where
+   helper [] keys = return keys
+   helper (loc : rest) keys = do
+      pos <- randomPosition checkForLocked roomMap
+      let key = Item.genKey loc
+      helper rest ((key, pos) : keys)
 
 
 -- creates a ladder, takes care not to spawn it at the edges of the rooms
@@ -138,14 +140,13 @@ randomPosition checkForLocked roomMap = do
    let innerLoc = head $ randomRs ((0,0), (Mov.roomSize,Mov.roomSize)) gen -- get a random Mov.InnerLocation
    gen2 <- newStdGen
    let dir = head $ randoms gen2 :: Mov.Direction -- get a random Mov.Direction
+   gen3 <- newStdGen
    if checkForLocked
       then do
-         gen3 <- newStdGen
          let loc = head . filter (\x -> not (roomMap ! x)) . randomRs ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) $ gen3 -- get a random unlocked room
          let newPos = (loc, innerLoc, dir)
          return newPos
       else do
-         gen3 <- newStdGen
          let loc = head $ randomRs ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) gen3 :: (Int, Int) -- get a random room
          let newPos = (loc, innerLoc, dir)
          return newPos
@@ -214,7 +215,7 @@ emptyGame roomMap = ("", roomMap, Mov.nullPosition, (Cha.nullCharacter, Mov.null
 
 
 
--- sets the starting parameters for the game like positions and control settings
+-- sets the starting parameters for the game like monsters and items
 initialize :: IO (MVar Game)
 initialize = do
    roomMap <- createMap
@@ -228,12 +229,14 @@ initialize = do
    enemies <- createEnemies numEnemies False roomMap []
    let numItems = head $ randomRs (0, Mov.numRooms * 3) gen2
    items <- createItems numItems False roomMap []
+   keys <- createKeys False roomMap
+   let itemList = keys ++ items
    ladderWithPos <- createLadder True roomMap
    putStr $ "\nWell, " ++ Cha.name player
    putStrLn ", you're in quite a pickle right now. Remember? You were exploring a cave, but the floor you were standing on fell down and you with it... Maybe there's a ladder here somewhere? And are those shrieks I hear?"
    putStrLn "Press Enter to start..."
    _ <- getLine
-   newMVar ("", roomMap, winPosition, playerWithPos, enemies, ladderWithPos, items)
+   newMVar ("", roomMap, winPosition, playerWithPos, enemies, ladderWithPos, itemList)
 
 
 -- uses the module Draw to create a representation of the room's contents on the command line
