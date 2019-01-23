@@ -22,7 +22,7 @@ type Location = (Int, Int) -- which room you're in, numbers are the same as the 
 
 type Map = Array (Int, Int) Bool -- a representation of the actual room map
 
-type InnerLocation = (Int, Int) -- all rooms are the same size, so a simple coordinate pair from 0 to roomSize will suffice
+type InnerLocation = (Int, Int) -- all rooms are the same size, so a simple coordinate pair from lowInnerBound to highInnerBound will suffice
 
 type Position = (Location, InnerLocation, Direction) -- your position consists of the room you're in, your position in that room and the direction you're facing currently
 
@@ -30,17 +30,24 @@ type Position = (Location, InnerLocation, Direction) -- your position consists o
 
 
 -- naming some values so, if necessary, changing them afterwards is easier
-roomSize :: Int
-roomSize = 7
 
-leftDoorCoord :: Int
-leftDoorCoord = floor (fromIntegral roomSize / 2 :: Double)
+leftDoorCoordNS :: Int
+leftDoorCoordNS = floor (fromIntegral (highInnerBoundNS + lowInnerBoundNS) / 2 :: Double)
 
-rightDoorCoord :: Int
-rightDoorCoord = ceiling (fromIntegral roomSize / 2 :: Double)
+rightDoorCoordNS :: Int
+rightDoorCoordNS = ceiling (fromIntegral (highInnerBoundNS + lowInnerBoundNS) / 2 :: Double)
+
+
+leftDoorCoordWE :: Int
+leftDoorCoordWE = floor (fromIntegral (highInnerBoundWE + lowInnerBoundWE) / 2 :: Double)
+
+rightDoorCoordWE :: Int
+rightDoorCoordWE = ceiling (fromIntegral (highInnerBoundWE + lowInnerBoundWE) / 2 :: Double)
+
 
 numRooms :: Int
-numRooms = ( highBoundNS - lowBoundNS + 1 ) * ( highBoundWE - lowBoundWE + 1)
+numRooms = (highBoundNS - lowBoundNS + 1 ) * (highBoundWE - lowBoundWE + 1)
+
 
 lowBoundNS :: Int
 lowBoundNS = 0
@@ -54,32 +61,51 @@ highBoundNS = 3
 highBoundWE :: Int
 highBoundWE = 3
 
+
+lowInnerBoundNS :: Int
+lowInnerBoundNS = 0
+
+lowInnerBoundWE :: Int
+lowInnerBoundWE = 0
+
+highInnerBoundNS :: Int
+highInnerBoundNS = 7
+
+highInnerBoundWE :: Int
+highInnerBoundWE = 7
+
+
 -- a simple check if you're standing in front of a door
-isDoor :: Int -> Bool
-isDoor x = x >= leftDoorCoord && x <= rightDoorCoord
+isDoorNS :: Int -> Bool
+isDoorNS x = x >= leftDoorCoordNS && x <= rightDoorCoordNS
+
+isDoorWE :: Int -> Bool
+isDoorWE x = x >= leftDoorCoordWE && x <= rightDoorCoordWE
+
 
 -- also checks for a door, but unlike above, the other coordinate isn't disregarded
 isDoorFull :: InnerLocation -> Bool
 isDoorFull (x,y)
-   | isWall (x,y) && (isDoor x || isDoor y) = True
+   | isWall (x,y) && (isDoorNS x || isDoorWE y) = True
    | otherwise = False
+
 
 -- Are you standing in a corner?
 isCorner :: InnerLocation -> Bool
 isCorner (x,y)
-   | (x == 0 || x == roomSize) && (y == 0 || y == roomSize) = True
+   | (x == lowInnerBoundNS || x == highInnerBoundNS) && (y == lowInnerBoundWE || y == highInnerBoundWE) = True
    | otherwise = False
 
 -- Are you standing in front of a wall or door?
 isWall :: InnerLocation -> Bool
 isWall (x,y)
-   | x == 0 || y == 0 || x == roomSize || y == roomSize = True
+   | x == lowInnerBoundNS || y == lowInnerBoundWE || x == highInnerBoundNS || y == highInnerBoundWE = True
    | otherwise = False
 
 
 -- the most basic position, for when positions need to be available before they are known
 nullPosition :: Position
-nullPosition = ((0,0), (0,0), North)
+nullPosition = ((lowBoundNS, lowBoundWE), (lowInnerBoundNS, lowInnerBoundWE), North)
 
 
 -- takes two positions and checks if the first one is directly in front of the second one
@@ -124,42 +150,42 @@ move (l, il, d) TurnLeft = Right (l, il, toEnum (fromEnum d + 1))
 
 
 move ((ns, we), (x, y), North) Advance
-   | (x == 0) && (ns == lowBoundNS) = if isDoor y then Left "Door blocked" else Left "Wall"
-   | x == 0 = if isDoor y then Right ((ns - 1, we), (roomSize, y), North) else Left "Wall"
+   | (x == lowInnerBoundNS) && (ns == lowBoundNS) = if isDoorWE y then Left "Door blocked" else Left "Wall"
+   | x == lowInnerBoundNS = if isDoorWE y then Right ((ns - 1, we), (highInnerBoundNS, y), North) else Left "Wall"
    | otherwise = Right ((ns, we), (x - 1, y), North)
 
 move ((ns, we), (x, y), West) Advance
-   | (y == 0) && (we == lowBoundWE) = if isDoor x then Left "Door blocked" else Left "Wall"
-   | y == 0 = if isDoor x then Right ((ns, we - 1), (x, roomSize), West) else Left "Wall"
+   | (y == lowInnerBoundWE) && (we == lowBoundWE) = if isDoorNS x then Left "Door blocked" else Left "Wall"
+   | y == lowInnerBoundWE = if isDoorNS x then Right ((ns, we - 1), (x, highInnerBoundWE), West) else Left "Wall"
    | otherwise = Right ((ns, we), (x, y - 1), West)
 
 move ((ns, we), (x, y), South) Advance
-   | (x == roomSize) && (ns == highBoundNS) = if isDoor y then Left "Door blocked" else Left "Wall"
-   | x == roomSize = if isDoor y then Right ((ns + 1, we), (0, y), South) else Left "Wall"
+   | (x == highInnerBoundNS) && (ns == highBoundNS) = if isDoorWE y then Left "Door blocked" else Left "Wall"
+   | x == highInnerBoundNS = if isDoorWE y then Right ((ns + 1, we), (lowInnerBoundNS, y), South) else Left "Wall"
    | otherwise = Right ((ns, we), (x + 1, y), South)
 
 move ((ns, we), (x, y), East) Advance
-   | (y == roomSize) && (we == highBoundWE) = if isDoor x then Left "Door blocked" else Left "Wall"
-   | y == roomSize = if isDoor x then Right ((ns, we + 1), (x, 0), East) else Left "Wall"
+   | (y == highInnerBoundWE) && (we == highBoundWE) = if isDoorNS x then Left "Door blocked" else Left "Wall"
+   | y == highInnerBoundWE = if isDoorNS x then Right ((ns, we + 1), (x, lowInnerBoundWE), East) else Left "Wall"
    | otherwise = Right ((ns, we), (x, y + 1), East)
 
 
 move ((ns, we), (x, y), North) BackOff
-   | (x == roomSize) && (ns == highBoundNS) = if isDoor y then Left "Door blocked" else Left "Wall"
-   | x == roomSize = if isDoor y then Right ((ns + 1, we), (0, y), North) else Left "Wall"
+   | (x == highInnerBoundNS) && (ns == highBoundNS) = if isDoorWE y then Left "Door blocked" else Left "Wall"
+   | x == highInnerBoundNS = if isDoorWE y then Right ((ns + 1, we), (lowInnerBoundNS, y), North) else Left "Wall"
    | otherwise = Right ((ns, we), (x + 1, y), North)
 
 move ((ns, we), (x, y), West) BackOff
-   | (y == roomSize) && (we == highBoundWE) = if isDoor x then Left "Door blocked" else Left "Wall"
-   | y == roomSize = if isDoor x then Right ((ns, we + 1), (x, 0), West) else Left "Wall"
+   | (y == highInnerBoundWE) && (we == highBoundWE) = if isDoorNS x then Left "Door blocked" else Left "Wall"
+   | y == highInnerBoundWE = if isDoorNS x then Right ((ns, we + 1), (x, lowInnerBoundWE), West) else Left "Wall"
    | otherwise = Right ((ns, we), (x, y + 1), West)
 
 move ((ns, we), (x, y), South) BackOff
-   | (x == 0) && (ns == lowBoundNS) = if isDoor y then Left "Door blocked" else Left "Wall"
-   | x == 0 = if isDoor y then Right ((ns - 1, we), (roomSize, y), South) else Left "Wall"
+   | (x == lowInnerBoundNS) && (ns == lowBoundNS) = if isDoorWE y then Left "Door blocked" else Left "Wall"
+   | x == lowInnerBoundNS = if isDoorWE y then Right ((ns - 1, we), (highInnerBoundNS, y), South) else Left "Wall"
    | otherwise = Right ((ns, we), (x - 1, y), South)
 
 move ((ns, we), (x, y), East) BackOff
-   | (y == 0) && (we == lowBoundWE) = if isDoor x then Left "Door blocked" else Left "Wall"
-   | y == 0 = if isDoor x then Right ((ns, we - 1), (x, roomSize), East) else Left "Wall"
+   | (y == lowInnerBoundWE) && (we == lowBoundWE) = if isDoorNS x then Left "Door blocked" else Left "Wall"
+   | y == lowInnerBoundWE = if isDoorNS x then Right ((ns, we - 1), (x, highInnerBoundWE), East) else Left "Wall"
    | otherwise = Right ((ns, we), (x, y - 1), East)

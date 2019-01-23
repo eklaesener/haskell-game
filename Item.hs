@@ -7,7 +7,7 @@ data Attributes = Nil | Weapon { power :: Float
                                , range :: Int
                                }
                       | Shield { durability :: Float }
-                      | Key { room :: (Int, Int) }
+                      | Key { room :: Mov.Location }
                       | Ladder deriving (Show, Eq)
 
 instance Random Attributes where
@@ -15,7 +15,7 @@ instance Random Attributes where
       | low < 1 || high > 3 = error "Out of range!"
       | otherwise = let (tempRand, gen') = randomR (low :: Int, high) gen
                         (randPower, tempGenWeapon) = randomR (3 :: Float, 50) gen'
-                        (randRange, genWeapon) = randomR (1, Mov.roomSize) tempGenWeapon
+                        (randRange, genWeapon) = randomR (1, max Mov.highInnerBoundNS Mov.highInnerBoundWE) tempGenWeapon
                         (randDur, genShield) = randomR (15 :: Float, 100) gen'
                         (randNS, tempGenKey) = randomR (Mov.lowBoundNS, Mov.highBoundNS) gen'
                         (randWE, genKey) = randomR (Mov.lowBoundWE, Mov.highBoundWE) tempGenKey
@@ -38,7 +38,7 @@ instance Random Attributes where
 
 
 
--- reads as (name, isInventory, [possibly other attributes like power])
+-- reads as (name, isInventory, type and further attributes)
 type Item = (String, Bool, Attributes)
 
 
@@ -97,32 +97,18 @@ ladder :: Item
 ladder = ("Ladder", False, Ladder)
 
 
-keyList :: [Item]
-keyList = [("Key", True, Key (0,0))
-          ,("Key", True, Key (0,1))
-          ,("Key", True, Key (0,2))
-          ,("Key", True, Key (0,3))
-          ,("Key", True, Key (1,0))
-          ,("Key", True, Key (1,1))
-          ,("Key", True, Key (1,2))
-          ,("Key", True, Key (1,3))
-          ,("Key", True, Key (2,0))
-          ,("Key", True, Key (2,1))
-          ,("Key", True, Key (2,2))
-          ,("Key", True, Key (2,3))
-          ]
 
 weaponList :: [Item]
 weaponList = [("Side sword", True, Weapon 10 1)
              ,("Longsword", True, Weapon 15 2)
-             ,("Bow", True, Weapon 10 Mov.roomSize)
+             ,("Bow", True, Weapon 10 (max Mov.highInnerBoundNS Mov.highInnerBoundWE))
              ,("Club", True, Weapon 5.5 1)
              ]
 
 shieldList :: [Item]
 shieldList = [("Oakenshield", True, Shield 20)
-             ,("Iron Shield", True, Shield 60)
+             ,("Iron Shield", True, Shield 40)
              ]
 
 invItemList :: [Item]
-invItemList = shieldList ++ weaponList ++ keyList
+invItemList = shieldList ++ weaponList

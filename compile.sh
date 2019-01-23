@@ -1,3 +1,3 @@
 #!/bin/bash -
 
-ghc -o game -O -Wall Main.hs
+ghc -o game -O -Wall -threaded Main.hs

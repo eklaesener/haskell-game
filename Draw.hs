@@ -32,6 +32,13 @@ win :: String
 win = " ⭙ "
 
 
+itemList :: [String]
+itemList =
+   [" ⚔ "
+   ," 🛡 "
+   ," 🔑 "
+   ]
+
 weapon :: String
 weapon = " ⚔ "
 
@@ -41,6 +48,34 @@ shield = " 🛡 "
 key :: String
 key = " 🔑 "
 
+
+enemyList :: [String]
+enemyList =
+   [" ᕕ "
+   ," ᕗ "
+   ," ᕓ "
+   ," ᕙ "
+   ," ᘯ "
+   ," ᘰ "
+   ," ᘮ "
+   ," ᘳ "
+   ," ᘺ "
+   ," ᘿ "
+   ," ᘻ "
+   ," ᘼ "
+   ," ᗑ "
+   ," ᗒ "
+   ," ᗐ "
+   ," ᗕ "
+   ," ᕱ "
+   ," ᕲ "
+   ," ᕰ "
+   ," ᕳ "
+   ," ᗅ "
+   ," ᗆ "
+   ," ᗄ "
+   ," ᗉ "
+   ]
 
 enemy :: String -> Direction -> String
 enemy "Berserker" North = " ᕕ "
@@ -88,8 +123,8 @@ insert a@((x1, y1), _) (b@((x2, y2), _) : rest)
 -- generates the full list of doors
 doorList :: InputList
 doorList = [((x,y), door)
-           | x <- [0 .. roomSize]
-           , y <- [0 .. roomSize]
+           | x <- [lowInnerBoundNS .. highInnerBoundNS]
+           , y <- [lowInnerBoundWE .. highInnerBoundWE]
            , isDoorFull (x,y)
            ]
 
@@ -101,8 +136,8 @@ filterDoorList = filterHelper doorList
 -- generates a room full of dots, but filters out the doors (since they stay the same each time)
 dotList :: InputList
 dotList = [((x,y), dot)
-          | x <- [0 .. roomSize]
-          , y <- [0 .. roomSize]
+          | x <- [lowInnerBoundNS .. highInnerBoundNS]
+          , y <- [lowInnerBoundWE .. highInnerBoundWE]
           , not $ isDoorFull (x,y)
           ]
 
@@ -121,17 +156,16 @@ filterClashes [] = []
 filterClashes ((pos, str) : rest)
    | str `elem` [" ⯅ ", " ⯈ ", " ⯆ ", " ⯇ "] = expr
    | str == " ☷ " = expr
-   | str `elem` [" B ", " C ", " G ", " H ", " O ", " R "] = expr
-   | str `elem` [" W ", " S ", " K "] = expr
+   | str `elem` enemyList = expr
+   | str `elem` itemList = expr
    | otherwise = expr
---   | otherwise = (pos, str) : filterClashes rest
   where expr = (pos, str) : filterClashes (filter (\(x, _) -> x /= pos) rest)
 
 
 
 -- displays the current status like hp, weapons and so on
 drawStats :: Cha.Character -> DrawList
-drawStats char@(Cha.Character charName hp _ currInv) = ["Your name: " ++ charName, "Your health: " ++ show hp, weaponStats, "Other weapons: " ++ weapons, shieldStats, "Other shields: " ++ shields, "Your keys: " ++ show keys]
+drawStats char@(Cha.Character charName hp _ currInv) = ["Your name: " ++ charName, "Your health: " ++ show hp ++ " HP", weaponStats, "Other weapons: " ++ weapons, shieldStats, "Other shields: " ++ shields, "Your keys: " ++ show keys, ""]
   where
    (weaponName, weaponDmg, weaponRange) = case Cha.equippedWeapon char of
       Nothing -> ("Fists", Item.fistDmg, 1)
@@ -151,7 +185,7 @@ drawStats char@(Cha.Character charName hp _ currInv) = ["Your name: " ++ charNam
 
 -- draws the room
 draw :: String -> Cha.Character -> InputList -> IO ()
-draw narrStr char list = helper . drawing 0 narrStr (drawStats char) . cleanList . filterClashes . foldr insert (filterDotList tempList) $ filterDoorList tempList ++ list
+draw narrStr char list = helper . drawing lowInnerBoundNS narrStr (drawStats char) . cleanList . filterClashes . foldr insert (filterDotList tempList) $ filterDoorList tempList ++ list
   where
    tempList = map fst list
    -- takes one element out of the [DrawList] (one row), compresses the strings into one with unlines, filters out the newlines the unlines call has generated, prints that string to the command line, and recursively calls itself with the rest of the [DrawList]
@@ -163,9 +197,9 @@ cleanList :: InputList -> DrawList
 cleanList [] = []
 cleanList ((_, str):rest) = str : cleanList rest
 
--- takes a cleaned up list of strings, the narrator string and the stats and splits them in lists of roomSize
+-- takes a cleaned up list of strings, the narrator string and the stats and splits them in lists of highInnerBoundWE
 drawing :: Int -> String -> DrawList -> DrawList -> [DrawList]
 drawing count narrStr stats list
-            | count == roomSize = [list ++ ["   ", narrStr]]
-            | otherwise = let (comp1, comp2) = splitAt (roomSize + 1) list
-                          in (comp1 ++ ["   ", stats !! count]) : drawing (count + 1) narrStr stats comp2
+            | count == highInnerBoundNS = [list ++ ["   ", narrStr]]
+            | otherwise = let (comp1, comp2) = splitAt (highInnerBoundWE - lowInnerBoundWE + 1) list
+                          in (comp1 ++ ["   ", stats !! min count (length stats - 1)]) : drawing (count + 1) narrStr stats comp2

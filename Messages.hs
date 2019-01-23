@@ -124,7 +124,7 @@ getShieldHitMsg name = do
 shieldHitMsgs :: String -> [String]
 shieldHitMsgs name =
    ["Oh no! That " ++ name ++ "'s shield absorbed the blow!"
-   ,"You hit " ++ name ++ "'s shield. Good job."
+   ,"You hit that " ++ name ++ "'s shield. Good job."
    ]
 
 
@@ -135,7 +135,7 @@ getShieldDestroyedMsg name = do
 
 shieldDestroyedMsgs :: String -> [String]
 shieldDestroyedMsgs name =
-   ["That was it! You destroyed " ++ name ++ "'s shield."
+   ["That was it! You destroyed that " ++ name ++ "'s shield."
    ]
 
 
@@ -169,7 +169,7 @@ getNoWeaponMsg = do
 
 noWeaponMsgs :: [String]
 noWeaponMsgs =
-   ["You can't drop your fists, but if you really want to try, go stand in front of a monster..."
+   ["You can't drop your fists, but if you really want to try, go stand in front of a monster."
    ,"You don't have a weapon you could drop!"
    ]
 

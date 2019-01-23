@@ -132,7 +132,7 @@ createLadder checkForLocked roomMap = do
 randomPosition :: Bool -> Mov.Map -> IO Mov.Position
 randomPosition checkForLocked roomMap = do
    gen <- newStdGen
-   let innerLoc = head $ randomRs ((0,0), (Mov.roomSize,Mov.roomSize)) gen -- get a random Mov.InnerLocation
+   let innerLoc = head $ randomRs ((Mov.lowInnerBoundNS, Mov.lowInnerBoundWE), (Mov.highInnerBoundNS, Mov.highInnerBoundWE)) gen -- get a random Mov.InnerLocation
    gen2 <- newStdGen
    let dir = head $ randoms gen2 :: Mov.Direction -- get a random Mov.Direction
    gen3 <- newStdGen
