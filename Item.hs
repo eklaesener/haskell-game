@@ -1,6 +1,6 @@
 module Item where
 
-import System.Random
+import System.Random (Random(..), RandomGen)
 import qualified Movement as Mov
 
 data Attributes = Nil | Weapon { power :: Float

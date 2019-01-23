@@ -1,7 +1,7 @@
 module Movement where
 
-import Data.Array
-import System.Random
+import Data.Array (Array)
+import System.Random (Random(..))
 
 
 

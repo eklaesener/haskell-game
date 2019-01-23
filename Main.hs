@@ -2,13 +2,13 @@ import Data.Array (listArray, (!), assocs)
 import Data.Char (toLower)
 import Data.List (minimumBy, nubBy)
 import Data.Maybe (isJust)
-import System.IO
-import System.Exit
+import System.IO (stdin, hWaitForInput, hSetEcho, hSetBuffering, BufferMode(..))
+import System.Exit (ExitCode(..))
 import System.Posix.Process (exitImmediately)
-import System.Random
+import System.Random (Random(..), RandomGen, newStdGen, getStdGen)
 import Control.Concurrent (threadDelay, forkIO)
-import Control.Concurrent.MVar
-import qualified Control.Monad.Random as Rand
+import Control.Concurrent.MVar (MVar, newMVar, readMVar, takeMVar, putMVar)
+import qualified Control.Monad.Random as Rand (evalRand, fromList)
 import qualified Movement as Mov
 import qualified Character as Cha
 import qualified Messages as Msg

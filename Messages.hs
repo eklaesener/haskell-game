@@ -1,6 +1,6 @@
 module Messages where
 
-import System.Random
+import System.Random (newStdGen, getStdGen, randomRs)
 
 
 
