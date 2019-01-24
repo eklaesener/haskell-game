@@ -2,16 +2,21 @@ import Data.Array (listArray, (!), assocs)
 import Data.Char (toLower)
 import Data.List (minimumBy, nubBy)
 import Data.Maybe (isJust)
+
 import System.IO (stdin, hWaitForInput, hSetEcho, hSetBuffering, BufferMode(..))
+import System.IO.Unsafe (unsafeDupablePerformIO)
 import System.Exit (ExitCode(..))
 import System.Posix.Process (exitImmediately)
 import System.Random (Random(..), RandomGen, newStdGen, getStdGen)
+
 import Control.Concurrent (threadDelay, forkIO)
 import Control.Concurrent.MVar (MVar, newMVar, readMVar, takeMVar, putMVar)
 import qualified Control.Monad.Random as Rand (evalRand, fromList)
+
 import qualified Movement as Mov
 import qualified Character as Cha
 import qualified Messages as Msg
+import qualified Config as Cfg
 import qualified Draw
 import qualified Item
 
@@ -41,6 +46,34 @@ type Game = (String, Mov.Map, Mov.Position, Player, Enemies, Ladder, Items)
 
 
 
+-- get the needed config values
+-- we can use unsafeDupablePerformIO here because we only intend to read from the config values, not change them
+
+config :: Cfg.Config
+config = unsafeDupablePerformIO Cfg.initConfig
+
+lockedRooms :: Rational
+lockedRooms = realToFrac . Cfg.lockedRooms $ config
+
+startingHealth :: Float
+startingHealth = Cfg.startingHP config
+
+numEnemyRange :: (Int, Int)
+numEnemyRange = Cfg.enemyRange config
+
+numItemRange :: (Int, Int)
+numItemRange = Cfg.itemRange config
+
+timeScreen :: Int
+timeScreen = Cfg.timeScreen config
+
+-- we need to multiply by 1000 here so that the value is in microseconds, which is what threadDelay expects
+timeEnemy :: Int
+timeEnemy = 1000 * Cfg.timeEnemies config
+
+
+
+
 -- creates weighted random lists to create a map where comparatively few rooms are locked
 weightedList :: RandomGen g => g -> [(a, Rational)] -> [a]
 weightedList gen weightList = Rand.evalRand m gen
@@ -51,7 +84,7 @@ weightedList gen weightList = Rand.evalRand m gen
 createMap :: IO Mov.Map
 createMap = do
    gen <- newStdGen
-   let weightList = [(True, 2), (False, 8)]
+   let weightList = [(True, lockedRooms), (False, 10 - lockedRooms)]
    let randomBools = take Mov.numRooms (weightedList gen weightList)
    return (listArray ((Mov.lowBoundNS, Mov.lowBoundWE), (Mov.highBoundNS, Mov.highBoundWE)) randomBools)
 
@@ -60,7 +93,7 @@ createMap = do
 createCharacter :: Bool -> Mov.Map -> IO Character
 createCharacter checkForLocked roomMap = do
    name <- getEnemyName
-   let char = Cha.Character name 100 False []
+   let char = Cha.Character name startingHealth False []
    pos <- randomPosition checkForLocked roomMap
    return (char, pos)
 
@@ -220,9 +253,9 @@ initialize = do
    playerWithPos@(player, winPosition) <- createPlayer roomMap
    gen <- newStdGen
    gen2 <- getStdGen
-   let numEnemies = head $ randomRs (0, Mov.numRooms * 2) gen
+   let numEnemies = head $ randomRs numEnemyRange gen
    enemies <- createEnemies numEnemies False roomMap []
-   let numItems = head $ randomRs (0, Mov.numRooms * 3) gen2
+   let numItems = head $ randomRs numItemRange gen2
    items <- createItems numItems False roomMap []
    keys <- createKeys False roomMap
    let itemList = keys ++ items
@@ -272,7 +305,7 @@ playerGameState gameVar = do
    tempGame <- readMVar gameVar
    putStrLn . take 70 $ repeat '\n'
    drawMap tempGame
-   isNewInput <- hWaitForInput stdin 100
+   isNewInput <- hWaitForInput stdin timeScreen
    if isNewInput
       then do
          input <- getChar
@@ -293,7 +326,7 @@ enemyGameState gameVar = do
       Left str -> quit str
       Right newGame -> do
          putMVar gameVar newGame
-         threadDelay 500000
+         threadDelay timeEnemy
          enemyGameState gameVar
 
 
@@ -724,7 +757,7 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, _, _)) oldGame@(narratorstr, 
          then enemyAction "random action" (enemy, oldEnemyPos) oldGame
          else do
             let (newItem, itemPos) = head placeItemList
-            let newEnemy = Cha.pickupItem False newItem enemy
+            let newEnemy = Cha.pickupItem True newItem enemy
             return $ Right (narratorstr, roomMap, winPos, (player, playerPos), (newEnemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), filter (/= (newItem, itemPos)) itemList)
    --
    -- Dropping the currently equipped weapon

@@ -2,6 +2,9 @@ module Movement where
 
 import Data.Array (Array)
 import System.Random (Random(..))
+import System.IO.Unsafe (unsafeDupablePerformIO)
+
+import qualified Config as Cfg
 
 
 
@@ -28,8 +31,26 @@ type Position = (Location, InnerLocation, Direction) -- your position consists o
 
 
 
+-- getting the values out of the config file
+-- similar to Main.hs
 
--- naming some values so, if necessary, changing them afterwards is easier
+config :: Cfg.Config
+config = unsafeDupablePerformIO Cfg.initConfig
+
+lowBoundNS, lowInnerBoundNS, lowBoundWE, lowInnerBoundWE, highBoundNS, highInnerBoundNS, highBoundWE, highInnerBoundWE :: Int
+
+lowBoundNS = fst . fst . Cfg.map $ config
+highBoundNS = fst . snd . Cfg.map $ config
+
+lowBoundWE = snd . fst . Cfg.map $ config
+highBoundWE = snd . snd . Cfg.map $ config
+
+lowInnerBoundNS = fst . fst . Cfg.room $ config
+highInnerBoundNS = fst . snd . Cfg.room $ config
+
+lowInnerBoundWE = snd . fst . Cfg.room $ config
+highInnerBoundWE = snd . snd . Cfg.room $ config
+
 
 leftDoorCoordNS :: Int
 leftDoorCoordNS = floor (fromIntegral (highInnerBoundNS + lowInnerBoundNS) / 2 :: Double)
@@ -49,30 +70,6 @@ numRooms :: Int
 numRooms = (highBoundNS - lowBoundNS + 1 ) * (highBoundWE - lowBoundWE + 1)
 
 
-lowBoundNS :: Int
-lowBoundNS = 0
-
-lowBoundWE :: Int
-lowBoundWE = 0
-
-highBoundNS :: Int
-highBoundNS = 3
-
-highBoundWE :: Int
-highBoundWE = 3
-
-
-lowInnerBoundNS :: Int
-lowInnerBoundNS = 0
-
-lowInnerBoundWE :: Int
-lowInnerBoundWE = 0
-
-highInnerBoundNS :: Int
-highInnerBoundNS = 7
-
-highInnerBoundWE :: Int
-highInnerBoundWE = 7
 
 
 -- a simple check if you're standing in front of a door
