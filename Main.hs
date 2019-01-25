@@ -16,7 +16,7 @@ import qualified Control.Monad.Random as Rand (evalRand, fromList)
 import qualified Movement as Mov
 import qualified Character as Cha
 import qualified Messages as Msg
-import qualified Config as Cfg
+import qualified Config as Cfg (config, initConfig, Config(..))
 import qualified Draw
 import qualified Item
 
@@ -104,9 +104,7 @@ createEnemies n checkForLocked roomMap enemies
    | n == 0 = return enemies
    | otherwise = do
       enemyWithPos@(_, pos) <- createCharacter checkForLocked roomMap
-      if any (\(_, x) -> comparePos x pos) enemies
-         then createEnemies n checkForLocked roomMap enemies
-         else createEnemies (n - 1) checkForLocked roomMap (enemyWithPos : enemies)
+      createEnemies (n - 1) checkForLocked roomMap (enemyWithPos : enemies)
 
 
 -- creates a new player character
@@ -135,10 +133,8 @@ createItems n checkForLocked roomMap items
    | n < 0 = error $ "Negative value for n: " ++ show n
    | n == 0 = return items
    | otherwise = do
-      itemWithPos@(_, pos) <- createItem checkForLocked roomMap
-      if any (\(_, x) -> comparePos x pos) items
-         then createItems n checkForLocked roomMap items
-         else createItems (n - 1) checkForLocked roomMap (itemWithPos : items)
+      itemWithPos <- createItem checkForLocked roomMap
+      createItems (n - 1) checkForLocked roomMap (itemWithPos : items)
 
 
 createKeys :: Bool -> Mov.Map -> IO Items
@@ -223,7 +219,7 @@ getMapKey =  "Key:\nYour position: ⯅ ⯈ ⯆ ⯇\n"
           ++ "Orcs: ᕱ ᕲ ᕰ ᕳ\n"
           ++ "Wraiths: ᗅ ᗆ ᗄ ᗉ\n\n"
           ++ "Items:\n"
-          ++ "Weapons: ⚔\n"
+          ++ "Weapons: 🗡️\n"
           ++ "Shields: 🛡\n"
           ++ "Keys: 🔑\n\n"
           ++ "And the cave-in: ⭙\n"
