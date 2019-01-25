@@ -1,7 +1,12 @@
-# ad-miniprojekt
-Mein Haskell Miniprojekt für Algorithmen und Datenstrukturen
+# haskell-game
+My own Haskell game
 
-Notwendige Befehle, um kompilieren zu können:
+Necessary commands for compilation:
+
 cabal update
+
 cabal install MonadRandom
-ghc -o <Dateiname> Main.hs
+
+cabal install ConfigFile
+
+ghc -o \<filename\> -O -threaded Main.hs
