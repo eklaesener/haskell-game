@@ -185,7 +185,7 @@ drawStats char@(Cha.Character charName hp _ currInv) = ["Your name: " ++ charNam
 
 -- draws the room
 draw :: String -> Cha.Character -> InputList -> IO ()
-draw narrStr char list = helper . drawing lowInnerBoundNS narrStr (drawStats char) . cleanList . filterClashes . foldr insert (filterDotList tempList) $ filterDoorList tempList ++ list
+draw narrStr char list = helper . drawing 0 narrStr (drawStats char) . cleanList . filterClashes . foldr insert (filterDotList tempList) $ filterDoorList tempList ++ list
   where
    tempList = map fst list
    -- takes one element out of the [DrawList] (one row), compresses the strings into one with unlines, filters out the newlines the unlines call has generated, prints that string to the command line, and recursively calls itself with the rest of the [DrawList]
@@ -200,6 +200,6 @@ cleanList ((_, str):rest) = str : cleanList rest
 -- takes a cleaned up list of strings, the narrator string and the stats and splits them in lists of highInnerBoundWE
 drawing :: Int -> String -> DrawList -> DrawList -> [DrawList]
 drawing count narrStr stats list
-            | count == highInnerBoundNS = [list ++ ["   ", narrStr]]
+            | count == highInnerBoundNS - 1 = [list ++ ["   ", narrStr]]
             | otherwise = let (comp1, comp2) = splitAt (highInnerBoundWE - lowInnerBoundWE + 1) list
                           in (comp1 ++ ["   ", stats !! min count (length stats - 1)]) : drawing (count + 1) narrStr stats comp2

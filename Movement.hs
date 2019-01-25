@@ -4,7 +4,7 @@ import Data.Array (Array)
 import System.Random (Random(..))
 import System.IO.Unsafe (unsafeDupablePerformIO)
 
-import qualified Config as Cfg
+import qualified Config as Cfg (config, Config(..))
 
 
 
@@ -35,21 +35,21 @@ type Position = (Location, InnerLocation, Direction) -- your position consists o
 -- similar to Main.hs
 
 config :: Cfg.Config
-config = unsafeDupablePerformIO Cfg.initConfig
+config = unsafeDupablePerformIO Cfg.config
 
 lowBoundNS, lowInnerBoundNS, lowBoundWE, lowInnerBoundWE, highBoundNS, highInnerBoundNS, highBoundWE, highInnerBoundWE :: Int
 
-lowBoundNS = fst . fst . Cfg.map $ config
-highBoundNS = fst . snd . Cfg.map $ config
+lowBoundNS = 1
+highBoundNS = fst . Cfg.map $ config
 
-lowBoundWE = snd . fst . Cfg.map $ config
-highBoundWE = snd . snd . Cfg.map $ config
+lowBoundWE = 1
+highBoundWE = snd . Cfg.map $ config
 
-lowInnerBoundNS = fst . fst . Cfg.room $ config
-highInnerBoundNS = fst . snd . Cfg.room $ config
+lowInnerBoundNS = 1
+highInnerBoundNS = fst . Cfg.room $ config
 
-lowInnerBoundWE = snd . fst . Cfg.room $ config
-highInnerBoundWE = snd . snd . Cfg.room $ config
+lowInnerBoundWE = 1
+highInnerBoundWE = snd . Cfg.room $ config
 
 
 leftDoorCoordNS :: Int

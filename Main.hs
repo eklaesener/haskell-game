@@ -50,7 +50,7 @@ type Game = (String, Mov.Map, Mov.Position, Player, Enemies, Ladder, Items)
 -- we can use unsafeDupablePerformIO here because we only intend to read from the config values, not change them
 
 config :: Cfg.Config
-config = unsafeDupablePerformIO Cfg.initConfig
+config = unsafeDupablePerformIO Cfg.config
 
 lockedRooms :: Rational
 lockedRooms = realToFrac . Cfg.lockedRooms $ config
@@ -246,10 +246,10 @@ emptyGame roomMap = ("", roomMap, Mov.nullPosition, (Cha.nullCharacter, Mov.null
 -- sets the starting parameters for the game like monsters and items
 initialize :: IO (MVar Game)
 initialize = do
+   _ <- Cfg.initConfig -- display warnings if any config options aren't accessible
    roomMap <- createMap
    let empty = emptyGame roomMap
-   (Right (narrStr, _, _, _, _, _, _)) <- playerAction "help" empty
-   putStrLn narrStr
+   _ <- playerAction "help" empty
    playerWithPos@(player, winPosition) <- createPlayer roomMap
    gen <- newStdGen
    gen2 <- getStdGen
@@ -338,14 +338,14 @@ cycleEnemies game@(_, _, _, _, enemyList, _, _)
   where
    helper enemyWithPos rest oldGame@(_, roomMap, winPos, _, _, ladderWithPos, _)
       | null rest = do
-         result <- enemyAction "random action" enemyWithPos oldGame
+         result <- enemyAction "attack" enemyWithPos oldGame
          case result of
             Left str -> return $ Left str
             Right (newNarrStr, _, _, newPlayerWithPos, newEnemyWithPos : tempEnemyList, _, newItemList) -> do
                let newEnemyList = newEnemyWithPos : filter (/= enemyWithPos) tempEnemyList
                return $ Right (newNarrStr, roomMap, winPos, newPlayerWithPos, newEnemyList, ladderWithPos, newItemList)
       | otherwise = do
-         result <- enemyAction "random action" enemyWithPos oldGame
+         result <- enemyAction "attack" enemyWithPos oldGame
          case result of
             Left str -> return $ Left str
             Right (newNarrStr, _, _, newPlayerWithPos, newEnemyWithPos : tempEnemyList, _, newItemList) -> do
@@ -653,9 +653,9 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, _, _)) oldGame@(narratorstr, 
       tempGameRes <- enemyAction "go forward" (enemy, oldEnemyPos) oldGame
       case tempGameRes of
          Left resStr -> return $ Left resStr
-         Right tempGame@(_, _, _, _, (newEnemy, newEnemyPos) : _, _, _) -> if comparePos oldEnemyPos newEnemyPos
-            then return . Right $ filterEnemy False (enemy, oldEnemyPos) tempGame
-            else enemyAction "sprint forward" (newEnemy, newEnemyPos) $ filterEnemy False (enemy, oldEnemyPos) tempGame
+         Right tempGame@(_, _, _, (newPlayer, _), (newEnemy, newEnemyPos) : enemyList, _, _) -> if comparePos oldEnemyPos newEnemyPos
+            then return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (newEnemy, newEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList)
+            else enemyAction "teleport forward" (newEnemy, newEnemyPos) $ filterEnemy False (enemy, oldEnemyPos) tempGame
    | str == "go back" = do
       (Right tempGame1@(_, _, _, _, (_, tempEnemyPos1) : _, _, _)) <- enemyAction "turn around" (enemy, oldEnemyPos) oldGame
       tempGameRes <- enemyAction "go forward" (enemy, tempEnemyPos1) $ filterEnemy False (enemy, oldEnemyPos) tempGame1
@@ -726,9 +726,10 @@ enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, _, _)) oldGame@(narratorstr, 
                         let newPlayer = Cha.modifyInv True oldShield newShield player
                         return $ Right (narratorstr, roomMap, winPos, (newPlayer, playerPos), (enemy, oldEnemyPos) : filter (/= (enemy, oldEnemyPos)) enemyList, (ladder, ladderPos), itemList) 
       else if playerPos `Mov.inLOS` oldEnemyPos -- the player isn't directly in front of the enemy, but still in its line of sight
-         then if Cha.name enemy == "Berserker" -- berserkers gonna berserk
-            then enemyAction "go forward" (enemy, oldEnemyPos) oldGame
-            else case enemyWeapon of
+         then case Cha.name enemy of
+            "Berserker" -> enemyAction "go forward" (enemy, oldEnemyPos) oldGame --berserkers gonna berserk
+            "Wraith" -> enemyAction "teleport forward" (enemy, oldEnemyPos) oldGame
+            _ -> case enemyWeapon of
                Nothing -> enemyAction "random action" (enemy, oldEnemyPos) oldGame -- no weapon means no way they can reach the player
                Just (_, _, Item.Weapon dmg range) -> if (playerPos `Mov.distanceTo` oldEnemyPos) <= range -- check if the range is long enough
                      then case playerShield of
