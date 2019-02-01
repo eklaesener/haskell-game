@@ -416,49 +416,55 @@ shortInput input = case inputCaseIns of
 
 -- decide if the action is allowed and if it is, perform it
 playerAction :: String -> Game -> IO (Either String Game)
-playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos@(_, _, ladderDir)), itemList)
+playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos@(_, _, ladderDir)), itemMap)
    | str == "go forward" = do
       let result = Mov.move oldPlayerPos Mov.Advance
       case result of
          Left resStr -- the move function has caught something to be handled here
             | resStr == "Wall" -> do
                newNaStr <- Msg.getWallMsg
-               return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+               return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
             | resStr == "Door blocked" -> do
                newNaStr <- Msg.getDoorBlockedMsg
-               return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
-         Right newPlayerPos@(newPlayerRoom, _, _)
-            | roomMap ! newPlayerRoom && not (Cha.hasKey newPlayerRoom player) -> do -- if the new room is locked and the player doesn't have the right key, don't allow the move
+               return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
+         Right newPlayerPos@(newPlayerRoom, _, _) -> do
+            let enemyList = HM.lookupDefault [] newPlayerRoom enemyMap
+            case () of
+             ()
+               | roomMap ! newPlayerRoom && not (Cha.hasKey newPlayerRoom player) -> do -- if the new room is locked and the player doesn't have the right key, don't allow the move
                newNaStr <- Msg.getRoomLockedMsg
-               return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
-            -- we won't collide with anything, so everything is alright
-            | not (any (newPlayerPos `comparePos`) (oldLadderPos : map snd enemyList)) -> return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
-            -- we did collide with something, if it's an enemy, make him attack the player or move
-            |  any (newPlayerPos `comparePos`) $ map snd enemyList -> do
-               let enemyWithPos = head . filter (\(_, x) -> newPlayerPos `comparePos` x) $ enemyList
-               enemyAction "attack" enemyWithPos oldGame
-            -- we collided with the ladder
-            | otherwise -> do -- we're okay to move, but need to check the same things as before
-               let result2 = Mov.move newPlayerPos Mov.Advance
-               case result2 of
-                  Left resStr
-                     | resStr == "Wall" -> do
-                        newNaStr <- Msg.getWallPushMsg
-                        return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
-                     | resStr == "Door blocked" -> do
-                        newNaStr <- Msg.getDoorBlockedMsg
-                        return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
-                  Right newLadderPos@(newLadderRoom, newLadderInner, _)
-                     | roomMap ! newLadderRoom && not (Cha.hasKey newLadderRoom player) -> do
-                        newNaStr <- Msg.getRoomLockedMsg
-                        return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
-                     | any (newLadderPos `comparePos`) $ map snd enemyList -> do
-                        newNaStr <- Msg.getEnemyPushMsg
-                        return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
-                     | comparePos newLadderPos winPos -> return $ Left "You've finally gotten out of the caverns! Though you probably shouldn't explore caves like this one anymore...\n"
-                     | Mov.isCorner newLadderInner -> return $ Left "You've actually managed to maneuver the ladder into an unrecoverable location. Great Job. Guess you're not going to escape this cavern after all...\n"
-                     | otherwise -> return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemList)
-                       -- update ladder and player positions and return them
+               return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
+               -- we won't collide with anything, so everything is alright
+               | not (any (newPlayerPos `comparePos`) (oldLadderPos : map snd enemyList)) -> return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
+               -- we did collide with something, if it's an enemy, make him attack the player or move
+               | any (newPlayerPos `comparePos`) $ map snd enemyList -> do
+                  let enemyWithPos = head . filter (\(_, x) -> newPlayerPos `comparePos` x) $ enemyList
+                  enemyAction "attack" enemyWithPos oldGame
+               -- we collided with the ladder
+               | otherwise -> do -- we're okay to move, but need to check the same things as before
+                  let result2 = Mov.move newPlayerPos Mov.Advance
+                  case result2 of
+                     Left resStr
+                        | resStr == "Wall" -> do
+                           newNaStr <- Msg.getWallPushMsg
+                           return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
+                        | resStr == "Door blocked" -> do
+                           newNaStr <- Msg.getDoorBlockedMsg
+                           return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
+                     Right newLadderPos@(newLadderRoom, newLadderInner, _) -> do
+                        let tempEnemyList = HM.lookupDefault [] newLadderRoom enemyMap
+                        case () of
+                         ()
+                           | roomMap ! newLadderRoom && not (Cha.hasKey newLadderRoom player) -> do
+                              newNaStr <- Msg.getRoomLockedMsg
+                              return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
+                           | any (newLadderPos `comparePos`) $ map snd tempEnemyList -> do
+                              newNaStr <- Msg.getEnemyPushMsg
+                              return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
+                           | comparePos newLadderPos winPos -> return $ Left "You've finally gotten out of the caverns! Though you probably shouldn't explore caves like this one anymore...\n"
+                           | Mov.isCorner newLadderInner -> return $ Left "You've actually managed to maneuver the ladder into an unrecoverable location. Great Job. Guess you're not going to escape this cavern after all...\n"
+                           -- update ladder and player positions and return them
+                           | otherwise -> return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyMap, (ladder, (newLadderRoom, newLadderInner, ladderDir)), itemMap)
    --
    -- turns around, goes forward, then turns around again if we didn't win or lose
    | str == "go back" = do
@@ -471,10 +477,10 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos), 
    -- Now for turning:
    | str == "turn left" = do
       let (Right newPlayerPos) = Mov.move oldPlayerPos Mov.TurnLeft
-      return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+      return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
    | str == "turn right" = do
       let (Right newPlayerPos) = Mov.move oldPlayerPos Mov.TurnRight
-      return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+      return $ Right (narratorstr, roomMap, winPos, (player, newPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
    | str == "turn around" = do
       (Right tempGame) <- playerAction "turn left" oldGame
       playerAction "turn left" tempGame
@@ -492,11 +498,14 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos), 
       case tempResult2 of
          Left resStr -> return $ Left resStr
          (Right tempGame2) -> playerAction "turn left" tempGame2
+   --
+   -- Attacking:
    | str == "attack" = do
+      let enemyList = HM.lookupDefault [] oldPlayerRoom enemyMap
       let losList = filter (\(_, pos) -> pos `Mov.inLOS` oldPlayerPos) enemyList
       let frontList = filter (\(_, pos) -> pos `Mov.inFrontOf` oldPlayerPos) losList
       if null losList
-         then return $ Right ("I don't see anyone standing there, do you?", roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+         then return $ Right ("I don't see anyone standing there, do you?", roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
          else do
             let (nextEnemy, nextEnemyPos) = minimumBy (\(_, x) (_, y) -> compare (x `Mov.distanceTo` oldPlayerPos) (y `Mov.distanceTo` oldPlayerPos)) losList
             let playerWeapon = Cha.equippedWeapon player
@@ -507,60 +516,69 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos), 
             hitMsg <- Msg.getHitMsg $ Cha.name nextEnemy
             shieldHitMsg <- Msg.getShieldHitMsg $ Cha.name nextEnemy
             shieldDestroyedMsg <- Msg.getShieldDestroyedMsg $ Cha.name nextEnemy
-            let newItemList = map (\x -> (x, nextEnemyPos)) enemyInv ++ itemList
-            let newEnemyList = filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList
+            let killEnemyMap = deleteEnemy (nextEnemy, nextEnemyPos) oldPlayerRoom enemyMap
+            let killItemMap = HM.adjust (map (\x -> (x, nextEnemyPos)) enemyInv ++) oldPlayerRoom itemMap
             if null frontList
                then case playerWeapon of
-                  Nothing -> return $ Right (failMsg, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+                  Nothing -> return $ Right (failMsg, roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
                   Just (_, _, Item.Weapon dmg range) -> if (nextEnemyPos `Mov.distanceTo` oldPlayerPos) <= range
                      then case enemyShield of
                         Nothing -> do
                            let newEnemy = Cha.reduceHealth dmg nextEnemy
+                           let newEnemyMap = updateEnemy (nextEnemy, nextEnemyPos) (newEnemy, nextEnemyPos) oldPlayerRoom enemyMap
                            if Cha.isDead newEnemy
-                              then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyList, (ladder, oldLadderPos), newItemList)
-                              else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                              then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), killEnemyMap, (ladder, oldLadderPos), killItemMap)
+                              else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyMap, (ladder, oldLadderPos), itemMap)
                         Just oldShield -> do
                            let newShield = Item.reduceDur dmg oldShield
                            if Item.isDestroyed newShield
                               then do
                                  let newEnemy = Cha.dropItem oldShield nextEnemy
-                                 return $ Right (shieldDestroyedMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                                 let newEnemyMap = updateEnemy (nextEnemy, nextEnemyPos) (newEnemy, nextEnemyPos) oldPlayerRoom enemyMap
+                                 return $ Right (shieldDestroyedMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyMap, (ladder, oldLadderPos), itemMap)
                               else do
                                  let newEnemy = Cha.modifyInv True oldShield newShield nextEnemy
-                                 return $ Right (shieldHitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                                 let newEnemyMap = updateEnemy (nextEnemy, nextEnemyPos) (newEnemy, nextEnemyPos) oldPlayerRoom enemyMap
+                                 return $ Right (shieldHitMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyMap, (ladder, oldLadderPos), itemMap)
                      -- You can't reach the enemy
-                     else return $ Right (failMsg, roomMap, winPos, (player, oldPlayerPos), enemyList, (ladder, oldLadderPos), itemList)
+                     else return $ Right (failMsg, roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
                else case playerWeapon of
                   Nothing -> case enemyShield of
                      Nothing -> do
                         let newEnemy = Cha.reduceHealth Item.fistDmg nextEnemy
+                        let newEnemyMap = updateEnemy (nextEnemy, nextEnemyPos) (newEnemy, nextEnemyPos) oldPlayerRoom enemyMap
                         if Cha.isDead newEnemy
-                           then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyList, (ladder, oldLadderPos), newItemList)
-                           else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                           then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), killEnemyMap, (ladder, oldLadderPos), killItemMap)
+                           else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyMap, (ladder, oldLadderPos), itemMap)
                      Just oldShield -> do
                         let newShield = Item.reduceDur Item.fistDmg oldShield
                         if Item.isDestroyed newShield
                            then do
                               let newEnemy = Cha.dropItem oldShield nextEnemy
-                              return $ Right (shieldDestroyedMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                              let newEnemyMap = updateEnemy (nextEnemy, nextEnemyPos) (newEnemy, nextEnemyPos) oldPlayerRoom enemyMap
+                              return $ Right (shieldDestroyedMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyMap, (ladder, oldLadderPos), itemMap)
                            else do
                               let newEnemy = Cha.modifyInv True oldShield newShield nextEnemy
-                              return $ Right (shieldHitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                              let newEnemyMap = updateEnemy (nextEnemy, nextEnemyPos) (newEnemy, nextEnemyPos) oldPlayerRoom enemyMap
+                              return $ Right (shieldHitMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyMap, (ladder, oldLadderPos), itemMap)
                   Just (_, _, Item.Weapon dmg _) -> case enemyShield of
                      Nothing -> do
                         let newEnemy = Cha.reduceHealth dmg nextEnemy
+                        let newEnemyMap = updateEnemy (nextEnemy, nextEnemyPos) (newEnemy, nextEnemyPos) oldPlayerRoom enemyMap
                         if Cha.isDead newEnemy
-                           then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyList, (ladder, oldLadderPos), newItemList)
-                           else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                           then return $ Right (winMsg, roomMap, winPos, (player, oldPlayerPos), killEnemyMap, (ladder, oldLadderPos), killItemMap)
+                           else return $ Right (hitMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyMap, (ladder, oldLadderPos), itemMap)
                      Just oldShield -> do
                         let newShield = Item.reduceDur dmg oldShield
                         if Item.isDestroyed newShield
                            then do
                               let newEnemy = Cha.dropItem oldShield nextEnemy
-                              return $ Right (shieldDestroyedMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                              let newEnemyMap = updateEnemy (nextEnemy, nextEnemyPos) (newEnemy, nextEnemyPos) oldPlayerRoom enemyMap
+                              return $ Right (shieldDestroyedMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyMap, (ladder, oldLadderPos), itemMap)
                            else do
                               let newEnemy = Cha.modifyInv True oldShield newShield nextEnemy
-                              return $ Right (shieldHitMsg, roomMap, winPos, (player, oldPlayerPos), (newEnemy, nextEnemyPos) : filter (\x -> x /= (nextEnemy, nextEnemyPos)) enemyList, (ladder, oldLadderPos), itemList)
+                              let newEnemyMap = updateEnemy (nextEnemy, nextEnemyPos) (newEnemy, nextEnemyPos) oldPlayerRoom enemyMap
+                              return $ Right (shieldHitMsg, roomMap, winPos, (player, oldPlayerPos), newEnemyMap, (ladder, oldLadderPos), itemMap)
    --
    -- Picking up items
    | str == "pickup item" = do
