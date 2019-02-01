@@ -1,0 +1,24 @@
+cabal-version:       >=1.10
+name:                haskell-game
+version:             1.2.2
+synopsis:            A little nameless game.
+-- description:
+homepage:            https://www.eklaesener.de/haskell/game
+-- bug-reports:
+license:             BSD3
+license-file:        LICENSE
+author:              Elias Klaesener
+maintainer:          haskell-game@eklaesener.de
+-- copyright:
+category:            Game
+build-type:          Simple
+extra-source-files:  CHANGELOG.md, README.md
+
+executable haskell-game
+  main-is:             Main.hs
+  other-modules: Character, Config, Draw, Item, Messages, Movement
+  -- other-extensions:
+  build-depends:       base >=4.12 && <4.13, mtl >=2.2 && <2.3, directory >=1.3 && <1.4, array >=0.5 && <0.6, unix >=2.7 && <2.8, MonadRandom >=0.5.1.1 && <0.6, random >=1.1 && <1.2, ConfigFile >=1.1.4 && <1.2, unordered-containers >=0.2.10.0 && <0.3
+  ghc-options: -Wall
+  -- hs-source-dirs:
+  default-language:    Haskell2010

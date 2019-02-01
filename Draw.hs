@@ -34,13 +34,13 @@ win = " ⭙ "
 
 itemList :: [String]
 itemList =
-   [" ⚔ "
+   [" 🗡️ "
    ," 🛡 "
    ," 🔑 "
    ]
 
 weapon :: String
-weapon = " ⚔ "
+weapon = " 🗡️ "
 
 shield :: String
 shield = " 🛡 "

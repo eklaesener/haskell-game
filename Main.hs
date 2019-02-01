@@ -2,6 +2,7 @@ import Data.Array (listArray, (!), assocs)
 import Data.Char (toLower)
 import Data.List (minimumBy, nubBy)
 import Data.Maybe (isJust)
+import qualified Data.HashMap.Strict as HM
 
 import System.IO (stdin, hWaitForInput, hSetEcho, hSetBuffering, BufferMode(..))
 import System.IO.Unsafe (unsafeDupablePerformIO)
@@ -35,11 +36,11 @@ instance (Random x, Random y) => Random (x, y) where
 type Character = (Cha.Character, Mov.Position)
 type Player = Character
 type Enemy = Character
-type Enemies = [Enemy]
+type Enemies = HM.HashMap Mov.Location [Enemy]
 
 type Item = (Item.Item, Mov.Position)
 type Ladder = Item
-type Items = [Item]
+type Items = HM.HashMap Mov.Location [Item]
 
 type Game = (String, Mov.Map, Mov.Position, Player, Enemies, Ladder, Items)
 
@@ -73,6 +74,11 @@ timeEnemy = 1000 * Cfg.timeEnemies config
 
 
 
+-- will be used for creating and modifying the hashmaps
+addHashMap :: [(a, Mov.Position)] -> [(a, Mov.Position)] -> [(a, Mov.Position)]
+addHashMap x y = x ++ y
+
+
 
 -- creates weighted random lists to create a map where comparatively few rooms are locked
 weightedList :: RandomGen g => g -> [(a, Rational)] -> [a]
@@ -80,7 +86,7 @@ weightedList gen weightList = Rand.evalRand m gen
    where m = sequence . repeat . Rand.fromList $ weightList
 
 
--- creates a new map with randomly locked rooms
+-- creates a new (room) map with randomly locked rooms
 createMap :: IO Mov.Map
 createMap = do
    gen <- newStdGen
@@ -97,15 +103,26 @@ createCharacter checkForLocked roomMap = do
    pos <- randomPosition checkForLocked roomMap
    return (char, pos)
 
+
+createEnemies :: Int -> Bool -> Mov.Map -> Enemies -> IO Enemies
+createEnemies n checkForLocked roomMap enemyMap
+   | n < 0 = error $ "Negative value for n: " ++ show n
+   | n == 0 = return enemyMap
+   | otherwise = do
+      enemyWithPos@(_, (loc, _, _)) <- createCharacter checkForLocked roomMap
+      let newEnemyMap = HM.insertWith addHashMap loc enemyWithPos enemyMap
+      createEnemies (n - 1) checkForLocked roomMap newItemMap
+
+{-
 -- creates a list of new enemies with length n
 createEnemies :: Int -> Bool -> Mov.Map -> Enemies -> IO Enemies
 createEnemies n checkForLocked roomMap enemies
    | n < 0 = error $ "Negative value for n: " ++ show n
    | n == 0 = return enemies
    | otherwise = do
-      enemyWithPos@(_, pos) <- createCharacter checkForLocked roomMap
+      enemyWithPos <- createCharacter checkForLocked roomMap
       createEnemies (n - 1) checkForLocked roomMap (enemyWithPos : enemies)
-
+-}
 
 -- creates a new player character
 createPlayer :: Mov.Map -> IO Player
@@ -127,6 +144,17 @@ createItem checkForLocked roomMap = do
   where
    list = filter (not . Item.isKey) Item.invItemList
 
+createItems :: Int -> Bool -> Mov.Map -> Items -> IO Items
+createItems n checkForLocked roomMap itemMap
+   | n < 0 = error $ "Negative value for n: " ++ show n
+   | n == 0 = return itemMap
+   | otherwise = do
+      itemWithPos@(_, (loc, _, _)) <- createItem checkForLocked roomMap
+      let newItemMap = HM.insertWith addHashMap loc itemWithPos itemMap
+      createItems (n - 1) checkForLocked roomMap newItemMap
+
+{-
+
 -- creates a list of new items with length n
 createItems :: Int -> Bool -> Mov.Map -> Items -> IO Items
 createItems n checkForLocked roomMap items
@@ -135,16 +163,17 @@ createItems n checkForLocked roomMap items
    | otherwise = do
       itemWithPos <- createItem checkForLocked roomMap
       createItems (n - 1) checkForLocked roomMap (itemWithPos : items)
+-}
 
-
-createKeys :: Bool -> Mov.Map -> IO Items
-createKeys checkForLocked roomMap = helper (map fst . filter snd . assocs $ roomMap) []
+createKeys :: Bool -> Mov.Map -> Items -> IO Items
+createKeys checkForLocked roomMap = helper (map fst . filter snd . assocs $ roomMap)
   where
-   helper [] keys = return keys
-   helper (loc : rest) keys = do
-      pos <- randomPosition checkForLocked roomMap
-      let key = Item.genKey loc
-      helper rest ((key, pos) : keys)
+   helper [] itemMap = return itemMap
+   helper (room : rest) itemMap = do
+      pos@(loc, _, _) <- randomPosition checkForLocked roomMap
+      let key = Item.genKey room
+      let newItemMap = HM.insertWith addHashMap loc (key, pos) itemMap
+      helper rest newItemMap
 
 
 -- creates a ladder, takes care not to spawn it at the edges of the rooms
@@ -250,16 +279,15 @@ initialize = do
    gen <- newStdGen
    gen2 <- getStdGen
    let numEnemies = head $ randomRs numEnemyRange gen
-   enemies <- createEnemies numEnemies False roomMap []
+   enemyMap <- createEnemies numEnemies False roomMap HM.empty
    let numItems = head $ randomRs numItemRange gen2
-   items <- createItems numItems False roomMap []
-   keys <- createKeys False roomMap
-   let itemList = keys ++ items
+   tempItemMap <- createItems numItems False roomMap HM.empty
+   itemMap <- createKeys False roomMap tempItemMap
    ladderWithPos <- createLadder True roomMap
    putStrLn $ Msg.introMsg (Cha.name player)
    putStrLn "Press Enter to start..."
    _ <- getLine
-   newMVar ("", roomMap, winPosition, playerWithPos, enemies, ladderWithPos, itemList)
+   newMVar ("", roomMap, winPosition, playerWithPos, enemyMap, ladderWithPos, itemMap)
 
 
 -- uses the module Draw to create a representation of the room's contents on the command line
@@ -357,9 +385,9 @@ shortInput input = case inputCaseIns of
    'd' -> "go right"
    's' -> "go back"
    'a' -> "go left"
-   'f' -> "turn right"
+   'e' -> "turn right"
    'r' -> "turn around"
-   'e' -> "turn left"
+   'q' -> "turn left"
    ' ' -> "attack"
    'i' -> "pickup item"
    'k' -> "drop weapon"
@@ -367,7 +395,7 @@ shortInput input = case inputCaseIns of
    'l' -> "swap weapon"
    'ö' -> "swap shield"
    'h' -> "help"
-   'q' -> "quit"
+   '\ESC' -> "quit"
    _ -> "unknown" -- there isn't actually a match for unknown, so it will just fall through to the catch-all
   where inputCaseIns = toLower input
 
@@ -602,9 +630,9 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos), 
                    ++ "d for going right\n"
                    ++ "s for going back\n"
                    ++ "a for going left\n\n"
-                   ++ "f for turning right\n"
+                   ++ "e for turning right\n"
                    ++ "r for turning around\n"
-                   ++ "e for turning left\n\n"
+                   ++ "q for turning left\n\n"
                    ++ "space for attacking\n\n"
                    ++ "i for picking up items\n"
                    ++ "k for dropping your weapon\n"
@@ -612,7 +640,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos), 
                    ++ "l for swapping your weapon\n"
                    ++ "ö for swapping your shield\n"
                    ++ "h for help\n"
-                   ++ "q for quitting\n\n"
+                   ++ "escape for quitting\n\n"
                    ++ getMapKey
       putStrLn $ help ++ "\nPress Enter to continue."
       _ <- getLine
