@@ -110,8 +110,8 @@ createEnemies n checkForLocked roomMap enemyMap
    | n == 0 = return enemyMap
    | otherwise = do
       enemyWithPos@(_, (loc, _, _)) <- createCharacter checkForLocked roomMap
-      let newEnemyMap = HM.insertWith addHashMap loc enemyWithPos enemyMap
-      createEnemies (n - 1) checkForLocked roomMap newItemMap
+      let newEnemyMap = HM.insertWith addHashMap loc [enemyWithPos] enemyMap
+      createEnemies (n - 1) checkForLocked roomMap newEnemyMap
 
 {-
 -- creates a list of new enemies with length n
@@ -150,7 +150,7 @@ createItems n checkForLocked roomMap itemMap
    | n == 0 = return itemMap
    | otherwise = do
       itemWithPos@(_, (loc, _, _)) <- createItem checkForLocked roomMap
-      let newItemMap = HM.insertWith addHashMap loc itemWithPos itemMap
+      let newItemMap = HM.insertWith addHashMap loc [itemWithPos] itemMap
       createItems (n - 1) checkForLocked roomMap newItemMap
 
 {-
@@ -205,15 +205,22 @@ randomPosition checkForLocked roomMap = do
          return newPos
 
 
+insertEnemy :: Enemy -> Enemies -> Enemies
+insertEnemy enemy@(_, (loc, _, _)) = HM.adjust (enemy:) loc
 
+updateEnemy :: Enemy -> Enemy -> Enemies -> Enemies
+updateEnemy oldEnemy newEnemy = insertEnemy newEnemy . deleteEnemy oldEnemy
+
+deleteEnemy :: Enemy -> Enemies -> Enemies
+deleteEnemy enemy@(_, (loc, _, _)) = HM.adjust (filterEnemy False enemy) loc
 
 
 
 -- filters the given enemy out of the enemyList and, if wanted, prepends them to it
-filterEnemy :: Bool -> Enemy -> Game -> Game
-filterEnemy bool enemyWithPos (narrStr, roomMap, winPos, playerWithPos, enemyList, ladderWithPos, itemList)
-   | bool = (narrStr, roomMap, winPos, playerWithPos, enemyWithPos : filteredList, ladderWithPos, itemList)
-   | otherwise = (narrStr, roomMap, winPos, playerWithPos, filteredList, ladderWithPos, itemList)
+filterEnemy :: Bool -> Enemy -> [Enemy] -> [Enemy]
+filterEnemy bool enemyWithPos enemyList
+   | bool = enemyWithPos : filteredList
+   | otherwise = filteredList
   where filteredList = filter (/= enemyWithPos) enemyList
 
 
@@ -262,7 +269,7 @@ comparePos (room1, inner1, _) (room2, inner2, _) = room1 == room2 && inner1 == i
 
 -- creates an empty Game so playerAction "help" can be run
 emptyGame :: Mov.Map -> Game
-emptyGame roomMap = ("", roomMap, Mov.nullPosition, (Cha.nullCharacter, Mov.nullPosition), [], (("", False, Item.Nil), Mov.nullPosition), [])
+emptyGame roomMap = ("", roomMap, Mov.nullPosition, (Cha.nullCharacter, Mov.nullPosition), HM.empty, (("", False, Item.Nil), Mov.nullPosition), HM.empty)
 
 
 
@@ -292,9 +299,14 @@ initialize = do
 
 -- uses the module Draw to create a representation of the room's contents on the command line
 drawMap :: Game -> IO ()
-drawMap (narratorStr, _, winPos, (player, (playerRoom, playerInner, playerDir)), enemyList, (_, ladderPos), itemList) = do
+drawMap (narratorStr, _, winPos, (player, (playerRoom, playerInner, playerDir)), enemyMap, (_, ladderPos), itemMap) = do
+   -- get the items in the current room
+   let itemList = HM.lookupDefault [] playerRoom itemMap
    let tempItemList = nubBy (\(_, x) (_, y) -> x == y) itemList
-   let tempRoomContents = filter (\((x, _, _), _) -> x == playerRoom) $ map convertItem tempItemList ++ map convertEnemy enemyList
+   -- get the enemies in the current room
+   let enemyList = HM.lookupDefault [] playerRoom enemyMap
+   let tempRoomContents = map convertItem tempItemList ++ map convertEnemy enemyList
+   -- check if the ladder and/or the win position are in the current room
    let roomContents = filter (\((x, _, _), _) -> x == playerRoom) [(ladderPos, Draw.ladder), (winPos, Draw.win)] ++ tempRoomContents
    let drawList = (playerInner, Draw.player playerDir) : map (\((_, x, _), str) -> (x, str)) roomContents
    Draw.draw narratorStr player drawList
@@ -356,25 +368,26 @@ enemyGameState gameVar = do
 
 -- cycles through the list of enemies, performing one action each
 cycleEnemies :: Game -> IO (Either String Game)
-cycleEnemies game@(_, _, _, _, enemyList, _, _)
+cycleEnemies game@(_, _, _, _, enemyMap, _, _)
    | null enemyList = return $ Right game
    | otherwise = helper (head enemyList) (tail enemyList) game
   where
+   enemyList = concat $ HM.elems enemyMap
    helper enemyWithPos rest oldGame@(_, roomMap, winPos, _, _, ladderWithPos, _)
       | null rest = do
          result <- enemyAction "attack" enemyWithPos oldGame
          case result of
             Left str -> return $ Left str
-            Right (newNarrStr, _, _, newPlayerWithPos, newEnemyWithPos : tempEnemyList, _, newItemList) -> do
-               let newEnemyList = newEnemyWithPos : filter (/= enemyWithPos) tempEnemyList
-               return $ Right (newNarrStr, roomMap, winPos, newPlayerWithPos, newEnemyList, ladderWithPos, newItemList)
+            Right ((newNarrStr, _, _, newPlayerWithPos, tempEnemyMap, _, newItemMap), newEnemyWithPos) -> do
+               let newEnemyMap = updateEnemy enemyWithPos newEnemyWithPos tempEnemyMap
+               return $ Right (newNarrStr, roomMap, winPos, newPlayerWithPos, newEnemyMap, ladderWithPos, newItemMap)
       | otherwise = do
          result <- enemyAction "attack" enemyWithPos oldGame
          case result of
             Left str -> return $ Left str
-            Right (newNarrStr, _, _, newPlayerWithPos, newEnemyWithPos : tempEnemyList, _, newItemList) -> do
-               let newEnemyList = newEnemyWithPos : filter (/= enemyWithPos) tempEnemyList
-               let newGame = (newNarrStr, roomMap, winPos, newPlayerWithPos, newEnemyList, ladderWithPos, newItemList)
+            Right (newNarrStr, _, _, newPlayerWithPos, tempEnemyMap, _, newItemMap) -> do
+               let newEnemyMap = updateEnemy enemyWithPos newEnemyWithPos tempEnemyMap
+               let newGame = (newNarrStr, roomMap, winPos, newPlayerWithPos, newEnemyMap, ladderWithPos, newItemMap)
                helper (head rest) (tail rest) newGame
 
 
@@ -657,7 +670,7 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos), 
 
 
 -- and now the possible actions for enemies
-enemyAction :: String -> Enemy -> Game -> IO (Either String Game)
+enemyAction :: String -> Enemy -> Game -> IO (Either String (Game, Enemy))
 enemyAction str (enemy, oldEnemyPos@(oldEnemyRoom, _, _)) oldGame@(narratorstr, roomMap, winPos, (player, playerPos), enemyList, (ladder, ladderPos), itemList)
    | str == "go forward" = do -- much the same as above
       let result = Mov.move oldEnemyPos Mov.Advance
