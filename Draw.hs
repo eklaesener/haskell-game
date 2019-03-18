@@ -4,6 +4,9 @@ import Movement
 import qualified Item 
 import qualified Character as Cha
 
+import qualified Debug.Trace as Trace
+
+
 type InputList = [(InnerLocation,String)]
 type DrawList = [String]
 
@@ -202,4 +205,5 @@ drawing :: Int -> String -> DrawList -> DrawList -> [DrawList]
 drawing count narrStr stats list
             | count == highInnerBoundNS - 1 = [list ++ ["   ", narrStr]]
             | otherwise = let (comp1, comp2) = splitAt (highInnerBoundWE - lowInnerBoundWE + 1) list
+--                          in (comp1 ++ ["   ", Trace.trace ". \n" . Trace.traceShowId . (stats !!) . Trace.trace "with resulting line " . Trace.traceShowId . Trace.trace "Using function drawing with index " $ min count (length stats - 1)]) : drawing (count + 1) narrStr stats comp2
                           in (comp1 ++ ["   ", stats !! min count (length stats - 1)]) : drawing (count + 1) narrStr stats comp2

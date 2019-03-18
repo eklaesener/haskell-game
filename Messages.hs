@@ -1,7 +1,7 @@
 module Messages where
 
 import System.Random (newStdGen, getStdGen, randomRs)
-
+import qualified Debug.Trace as Trace
 
 
 
@@ -16,6 +16,7 @@ introMsg name =  "\nWell, "
 getWallMsg :: IO String
 getWallMsg = do
    gen <- newStdGen
+--   return . Trace.trace ". \n" . Trace.traceShowId . (wallMsgs!!) . Trace.trace "with resulting message " . Trace.traceShowId . Trace.trace "Using function wallMsgs with index " . head $ randomRs (0, length wallMsgs - 1) gen
    return . (wallMsgs!!) . head $ randomRs (0, length wallMsgs - 1) gen
 
 wallMsgs :: [String]
@@ -30,7 +31,8 @@ getDoorBlockedMsg :: IO String
 getDoorBlockedMsg = do
    _ <- newStdGen
    gen <- getStdGen
-   return . (doorBlockedMsgs!!) . head $ randomRs (0, length doorBlockedMsgs - 1) gen
+--   return . Trace.trace ". \n" . Trace.traceShowId . (doorBlockedMsgs!!) . Trace.trace "with resulting message " . Trace.traceShowId . Trace.trace "Using function doorBlockedMsgs with index " . head $ randomRs (0, length doorBlockedMsgs - 1) gen
+   return . (doorBlockedMsgs!!) . head $ randomRs (0, length wallMsgs - 1) gen
 
 doorBlockedMsgs :: [String]
 doorBlockedMsgs =
@@ -43,6 +45,7 @@ doorBlockedMsgs =
 getRoomLockedMsg :: IO String
 getRoomLockedMsg = do
    gen <- newStdGen
+--   return . Trace.trace ". \n" . Trace.traceShowId . (roomLockedMsgs!!) . Trace.trace "with resulting message " . Trace.traceShowId . Trace.trace "Using function roomLockedMsgs with index " . head $ randomRs (0, length roomLockedMsgs - 1) gen
    return . (roomLockedMsgs!!) . head $ randomRs (0, length roomLockedMsgs - 1) gen
 
 roomLockedMsgs :: [String]
@@ -57,7 +60,8 @@ getWallPushMsg :: IO String
 getWallPushMsg = do
    _ <- newStdGen
    gen <- getStdGen
-   return . (wallPushMsgs!!) . head $ randomRs (0, length wallPushMsgs - 1) gen
+--   return . Trace.trace ". \n" . Trace.traceShowId . (wallPushMsgs!!) . Trace.trace "with resulting message " . Trace.traceShowId . Trace.trace "Using function wallPushMsgs with index " . head $ randomRs (0, length wallPushMsgs - 1) gen
+   return . (wallPushMsgs!!) . head $ randomRs (0, length roomLockedMsgs - 1) gen
 
 wallPushMsgs :: [String]
 wallPushMsgs =

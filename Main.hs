@@ -14,6 +14,8 @@ import Control.Concurrent (threadDelay, forkIO)
 import Control.Concurrent.MVar (MVar, newMVar, readMVar, takeMVar, putMVar)
 import qualified Control.Monad.Random as Rand (evalRand, fromList)
 
+import qualified Debug.Trace as Trace
+
 import qualified Movement as Mov
 import qualified Character as Cha
 import qualified Messages as Msg
@@ -48,7 +50,7 @@ type Game = (String, Mov.Map, Mov.Position, Player, Enemies, Ladder, Items)
 
 
 -- get the needed config values
--- we can use unsafeDupablePerformIO here because we only intend to read from the config values, not change them
+-- we can use unsafeDupablePerformIO here because we only intend to read from the config values, not to change them
 
 config :: Cfg.Config
 config = unsafeDupablePerformIO Cfg.config
@@ -113,16 +115,6 @@ createEnemies n checkForLocked roomMap enemyMap
       let newEnemyMap = HM.insertWith addHashMap loc [enemyWithPos] enemyMap
       createEnemies (n - 1) checkForLocked roomMap newEnemyMap
 
-{-
--- creates a list of new enemies with length n
-createEnemies :: Int -> Bool -> Mov.Map -> Enemies -> IO Enemies
-createEnemies n checkForLocked roomMap enemies
-   | n < 0 = error $ "Negative value for n: " ++ show n
-   | n == 0 = return enemies
-   | otherwise = do
-      enemyWithPos <- createCharacter checkForLocked roomMap
-      createEnemies (n - 1) checkForLocked roomMap (enemyWithPos : enemies)
--}
 
 -- creates a new player character
 createPlayer :: Mov.Map -> IO Player
@@ -138,10 +130,11 @@ createPlayer roomMap = do
 createItem :: Bool -> Mov.Map -> IO Item
 createItem checkForLocked roomMap = do
    gen <- newStdGen
+--   let item = Trace.trace ". \n" . Trace.traceShowId . (list!!) . Trace.trace "with resulting item " . Trace.traceShowId . Trace.trace "Using function createItem with index " . head $ randomRs (0, length list - 1) gen
    let item = (list!!) . head $ randomRs (0, length list - 1) gen
    pos <- randomPosition checkForLocked roomMap
    return (item, pos)
-  where
+ where
    list = filter (not . Item.isKey) Item.invItemList
 
 createItems :: Int -> Bool -> Mov.Map -> Items -> IO Items
@@ -153,17 +146,6 @@ createItems n checkForLocked roomMap itemMap
       let newItemMap = HM.insertWith addHashMap loc [itemWithPos] itemMap
       createItems (n - 1) checkForLocked roomMap newItemMap
 
-{-
-
--- creates a list of new items with length n
-createItems :: Int -> Bool -> Mov.Map -> Items -> IO Items
-createItems n checkForLocked roomMap items
-   | n < 0 = error $ "Negative value for n: " ++ show n
-   | n == 0 = return items
-   | otherwise = do
-      itemWithPos <- createItem checkForLocked roomMap
-      createItems (n - 1) checkForLocked roomMap (itemWithPos : items)
--}
 
 createKeys :: Bool -> Mov.Map -> Items -> IO Items
 createKeys checkForLocked roomMap = helper (map fst . filter snd . assocs $ roomMap)
@@ -240,6 +222,7 @@ filterEnemy bool enemyWithPos enemyList
 getEnemyName :: IO String
 getEnemyName = do
    gen <- newStdGen
+--   return . Trace.trace ". \n" . Trace.traceShowId . (enemyNames!!) . Trace.trace "with resulting name " . Trace.traceShowId . Trace.trace "Using function getEnemyName with index " . head $ randomRs (0, length enemyNames - 1) gen
    return . (enemyNames!!) . head $ randomRs (0, length enemyNames - 1) gen
 
 
@@ -838,9 +821,27 @@ enemyAction str oldEnemyWithPos@(enemy, oldEnemyPos@(oldEnemyRoom, _, _)) oldGam
          then enemyAction "random action" oldEnemyWithPos oldGame
          else do
             let (newItem, itemPos) = head placeItemList
-            let newEnemy = Cha.pickupItem True newItem enemy
-            let newItemMap = deleteItem (newItem, itemPos) itemMap
-            return $ Right ((narratorstr, roomMap, winPos, (player, playerPos), enemyMap, (ladder, ladderPos), newItemMap), (newEnemy, oldEnemyPos))
+            let enemyWeapon = Cha.equippedWeapon enemy
+            let enemyShield = Cha.equippedShield enemy
+            if Item.isWeapon newItem
+               then case enemyWeapon of
+                  Nothing -> do
+                     let newEnemy = Cha.pickupItem True newItem enemy
+                     let newItemMap = deleteItem (newItem, itemPos) itemMap
+                     return $ Right ((narratorstr, roomMap, winPos, (player, playerPos), enemyMap, (ladder, ladderPos), newItemMap), (newEnemy, oldEnemyPos))
+                  Just weapon -> do
+                     let newEnemy = Cha.pickupItem True newItem . Cha.setEquipped False weapon $ enemy
+                     let newItemMap = deleteItem (newItem, itemPos) itemMap
+                     return $ Right ((narratorstr, roomMap, winPos, (player, playerPos), enemyMap, (ladder, ladderPos), newItemMap), (newEnemy, oldEnemyPos))
+               else case enemyShield of
+                  Nothing -> do
+                     let newEnemy = Cha.pickupItem True newItem enemy
+                     let newItemMap = deleteItem (newItem, itemPos) itemMap
+                     return $ Right ((narratorstr, roomMap, winPos, (player, playerPos), enemyMap, (ladder, ladderPos), newItemMap), (newEnemy, oldEnemyPos))
+                  Just shield -> do
+                     let newEnemy = Cha.pickupItem True newItem . Cha.setEquipped False shield $ enemy
+                     let newItemMap = deleteItem (newItem, itemPos) itemMap
+                     return $ Right ((narratorstr, roomMap, winPos, (player, playerPos), enemyMap, (ladder, ladderPos), newItemMap), (newEnemy, oldEnemyPos))
    --
    -- Dropping the currently equipped weapon
    | str == "drop weapon" = do
@@ -866,7 +867,8 @@ enemyAction str oldEnemyWithPos@(enemy, oldEnemyPos@(oldEnemyRoom, _, _)) oldGam
       else do
          let unusedWeaponList = map fst . filter (not . snd) $ Cha.weaponList enemy
          gen <- newStdGen
-         let newWeapon = (unusedWeaponList!!) . head . randomRs (0, length unusedWeaponList - 1) $ gen
+--         let newWeapon = Trace.trace ". \n" . Trace.traceShowId . (unusedWeaponList!!) . Trace.trace "with resulting weapon " . Trace.traceShowId . Trace.trace "Using function enemyAction, part \"swap weapon\", function unusedWeaponList with index " . head . randomRs (0, length unusedWeaponList - 1) $ gen
+         let newWeapon = (unusedWeaponList!!) . head $ randomRs (0, length unusedWeaponList - 1) gen
          let oldWeapon = Cha.equippedWeapon enemy
          case oldWeapon of
             Nothing -> do
@@ -880,7 +882,8 @@ enemyAction str oldEnemyWithPos@(enemy, oldEnemyPos@(oldEnemyRoom, _, _)) oldGam
       else do
          let unusedShieldList = map fst . filter (not . snd) $ Cha.shieldList enemy
          gen <- newStdGen
-         let newShield = (unusedShieldList!!) . head . randomRs (0, length unusedShieldList - 1) $ gen
+--         let newShield = Trace.trace ". \n" . Trace.traceShowId . (unusedShieldList!!) . Trace.trace "with resulting shield " . Trace.traceShowId . Trace.trace "Using function enemyAction, part \"swap shield\", function unusedShieldList with index " . head . randomRs (0, length unusedShieldList - 1) $ gen
+         let newShield = (unusedShieldList!!) . head $ randomRs (0, length unusedShieldList - 1) gen
          let oldShield = Cha.equippedShield enemy
          case oldShield of
             Nothing -> do
@@ -893,7 +896,7 @@ enemyAction str oldEnemyWithPos@(enemy, oldEnemyPos@(oldEnemyRoom, _, _)) oldGam
    -- choose a random action
    | str == "random action" = do
       gen <- newStdGen
-      let randOption = head . randomRs (1 :: Int, 13) $ gen
+      let randOption = head $ randomRs (1 :: Int, 13) gen
       case randOption of
          1 -> enemyAction "go forward" oldEnemyWithPos oldGame
          2 -> enemyAction "go back" oldEnemyWithPos oldGame
