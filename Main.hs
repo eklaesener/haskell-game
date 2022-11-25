@@ -23,16 +23,6 @@ import qualified Config as Cfg (config, initConfig, Config(..))
 import qualified Draw
 import qualified Item
 
--- making Pairs an instance of Random
-instance (Random x, Random y) => Random (x, y) where
-   randomR ((lowX, lowY), (highX, highY)) gen = ((randX, randY), gen'')
-      where (randX, gen')  = randomR (lowX, highX) gen
-            (randY, gen'') = randomR (lowY, highY) gen'
-   random gen = ((randX, randY), gen'')
-      where (randX, gen') = random gen
-            (randY, gen'') = random gen'
-
-
 
 -- defining some type synonyms for easier tracking
 type Character = (Cha.Character, Mov.Position)
