@@ -37,10 +37,10 @@ win = " ⭙ "
 
 itemList :: [String]
 itemList =
-   [" 🗡️ "
-   ," 🛡 "
-   ," 🔑 "
-   ]
+    [" 🗡️ "
+    ," 🛡 "
+    ," 🔑 "
+    ]
 
 weapon :: String
 weapon = " 🗡️ "
@@ -54,31 +54,31 @@ key = " 🔑 "
 
 enemyList :: [String]
 enemyList =
-   [" ᕕ "
-   ," ᕗ "
-   ," ᕓ "
-   ," ᕙ "
-   ," ᘯ "
-   ," ᘰ "
-   ," ᘮ "
-   ," ᘳ "
-   ," ᘺ "
-   ," ᘿ "
-   ," ᘻ "
-   ," ᘼ "
-   ," ᗑ "
-   ," ᗒ "
-   ," ᗐ "
-   ," ᗕ "
-   ," ᕱ "
-   ," ᕲ "
-   ," ᕰ "
-   ," ᕳ "
-   ," ᗅ "
-   ," ᗆ "
-   ," ᗄ "
-   ," ᗉ "
-   ]
+    [" ᕕ "
+    ," ᕗ "
+    ," ᕓ "
+    ," ᕙ "
+    ," ᘯ "
+    ," ᘰ "
+    ," ᘮ "
+    ," ᘳ "
+    ," ᘺ "
+    ," ᘿ "
+    ," ᘻ "
+    ," ᘼ "
+    ," ᗑ "
+    ," ᗒ "
+    ," ᗐ "
+    ," ᗕ "
+    ," ᕱ "
+    ," ᕲ "
+    ," ᕰ "
+    ," ᕳ "
+    ," ᗅ "
+    ," ᗆ "
+    ," ᗄ "
+    ," ᗉ "
+    ]
 
 enemy :: String -> Direction -> String
 enemy "Berserker" North = " ᕕ "
@@ -117,10 +117,10 @@ enemy "Wraith" West = " ᗉ "
 insert :: (InnerLocation, String) -> InputList -> InputList
 insert a [] = [a]
 insert a@((x1, y1), _) (b@((x2, y2), _) : rest)
-   | x2 < x1 = b : insert a rest
-   | x1 < x2 = a : b : rest
-   | y2 < y1 = b : insert a rest
-   | otherwise = a : b : rest
+    | x2 < x1 = b : insert a rest
+    | x1 < x2 = a : b : rest
+    | y2 < y1 = b : insert a rest
+    | otherwise = a : b : rest
 
 
 -- generates the full list of doors
@@ -157,12 +157,13 @@ filterHelper = foldl (\acc x -> filter (\(a, _) -> x /= a) acc)
 filterClashes :: InputList -> InputList
 filterClashes [] = []
 filterClashes ((pos, str) : rest)
-   | str `elem` [" ⯅ ", " ⯈ ", " ⯆ ", " ⯇ "] = expr
-   | str == " ☷ " = expr
-   | str `elem` enemyList = expr
-   | str `elem` itemList = expr
-   | otherwise = expr
-  where expr = (pos, str) : filterClashes (filter (\(x, _) -> x /= pos) rest)
+    | str `elem` [" ⯅ ", " ⯈ ", " ⯆ ", " ⯇ "] = expr
+    | str == " ☷ " = expr
+    | str `elem` enemyList = expr
+    | str `elem` itemList = expr
+    | otherwise = expr
+  where
+    expr = (pos, str) : filterClashes (filter (\(x, _) -> x /= pos) rest)
 
 
 
@@ -170,17 +171,17 @@ filterClashes ((pos, str) : rest)
 drawStats :: Cha.Character -> DrawList
 drawStats char@(Cha.Character charName hp _ currInv) = ["Your name: " ++ charName, "Your health: " ++ show hp ++ " HP", weaponStats, "Other weapons: " ++ weapons, shieldStats, "Other shields: " ++ shields, "Your keys: " ++ show keys, ""]
   where
-   (weaponName, weaponDmg, weaponRange) = case Cha.equippedWeapon char of
-      Nothing -> ("Fists", Item.fistDmg, 1)
-      Just (str, _, Item.Weapon dmg rng) -> (str, dmg, rng)
-   (shieldName, shieldDur) = case Cha.equippedShield char of
-      Nothing -> ("No shield", 0)
-      Just (str, _, Item.Shield dur) -> (str, dur)
-   keys = map (\((_, _, Item.Key room), _) -> room) (Cha.keyList char)
-   weaponStats = "Your weapon: " ++ weaponName ++ " Damage: " ++ show weaponDmg ++ " Range: " ++ show weaponRange
-   weapons = unwords . map Item.name . filter Item.isWeapon . map fst . filter (not . snd) $ currInv
-   shieldStats = "Your shield: " ++ shieldName ++ "  Remaining strength: " ++ show shieldDur
-   shields = unwords . map Item.name . filter Item.isShield . map fst . filter (not . snd) $ currInv
+    (weaponName, weaponDmg, weaponRange) = case Cha.equippedWeapon char of
+        Nothing -> ("Fists", Item.fistDmg, 1)
+        Just (str, _, Item.Weapon dmg rng) -> (str, dmg, rng)
+    (shieldName, shieldDur) = case Cha.equippedShield char of
+        Nothing -> ("No shield", 0)
+        Just (str, _, Item.Shield dur) -> (str, dur)
+    keys = map (\((_, _, Item.Key room), _) -> room) (Cha.keyList char)
+    weaponStats = "Your weapon: " ++ weaponName ++ " Damage: " ++ show weaponDmg ++ " Range: " ++ show weaponRange
+    weapons = unwords . map Item.name . filter Item.isWeapon . map fst . filter (not . snd) $ currInv
+    shieldStats = "Your shield: " ++ shieldName ++ "  Remaining strength: " ++ show shieldDur
+    shields = unwords . map Item.name . filter Item.isShield . map fst . filter (not . snd) $ currInv
 
 
 
@@ -190,9 +191,9 @@ drawStats char@(Cha.Character charName hp _ currInv) = ["Your name: " ++ charNam
 draw :: String -> Cha.Character -> InputList -> IO ()
 draw narrStr char list = helper . drawing 0 narrStr (drawStats char) . cleanList . filterClashes . foldr insert (filterDotList tempList) $ filterDoorList tempList ++ list
   where
-   tempList = map fst list
-   -- takes one element out of the [DrawList] (one row), compresses the strings into one with unlines, filters out the newlines the unlines call has generated, prints that string to the command line, and recursively calls itself with the rest of the [DrawList]
-   helper = foldr (\x -> (>>) (putStrLn . filter (/= '\n') . unlines $ x)) (putStrLn "")
+    tempList = map fst list
+    -- takes one element out of the [DrawList] (one row), compresses the strings into one with unlines, filters out the newlines the unlines call has generated, prints that string to the command line, and recursively calls itself with the rest of the [DrawList]
+    helper = foldr (\x -> (>>) (putStrLn . filter (/= '\n') . unlines $ x)) (putStrLn "")
 
 
 -- discards the coordinates, since we only needed them for sorting
@@ -203,7 +204,6 @@ cleanList ((_, str):rest) = str : cleanList rest
 -- takes a cleaned up list of strings, the narrator string and the stats and splits them in lists of highInnerBoundWE
 drawing :: Int -> String -> DrawList -> DrawList -> [DrawList]
 drawing count narrStr stats list
-            | count == highInnerBoundNS - 1 = [list ++ ["   ", narrStr]]
-            | otherwise = let (comp1, comp2) = splitAt (highInnerBoundWE - lowInnerBoundWE + 1) list
---                          in (comp1 ++ ["   ", Trace.trace ". \n" . Trace.traceShowId . (stats !!) . Trace.trace "with resulting line " . Trace.traceShowId . Trace.trace "Using function drawing with index " $ min count (length stats - 1)]) : drawing (count + 1) narrStr stats comp2
-                          in (comp1 ++ ["   ", stats !! min count (length stats - 1)]) : drawing (count + 1) narrStr stats comp2
+    | count == highInnerBoundNS - 1 = [list ++ ["   ", narrStr]]
+    | otherwise = let (comp1, comp2) = splitAt (highInnerBoundWE - lowInnerBoundWE + 1) list
+                  in (comp1 ++ ["   ", stats !! min count (length stats - 1)]) : drawing (count + 1) narrStr stats comp2

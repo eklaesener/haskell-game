@@ -40,22 +40,23 @@ setPlayerCharacter x char = char { pc = x }
 
 setEquipped :: Bool -> Item.Item -> Character -> Character
 setEquipped val item char@Character { inv = oldInv } = char { inv = newInv }
-  where list = filter (\(x,y) -> x == item && y /= val) oldInv
-        newInv = if null list
-                 then error $ "Character " ++ show char ++ " doesn't have an (un-)equipped " ++ show item ++ "!"
-                 else filterFirst (/= head list) oldInv ++ [(item, val)]
+  where
+    list = filter (\(x,y) -> x == item && y /= val) oldInv
+    newInv = if null list
+             then error $ "Character " ++ show char ++ " doesn't have an (un-)equipped " ++ show item ++ "!"
+             else filterFirst (/= head list) oldInv ++ [(item, val)]
 
 filterFirst :: (a -> Bool) -> [a] -> [a]
 filterFirst _ [] = []
 filterFirst p (x:xs)
-   | p x = x : filterFirst p xs
-   | otherwise = xs
+    | p x = x : filterFirst p xs
+    | otherwise = xs
 
 
 isDead :: Character -> Bool
 isDead Character { hp = currHP }
-   | currHP <= 0 = True
-   | otherwise = False
+    | currHP <= 0 = True
+    | otherwise = False
 
 
 -- checks if the given character has a key unlocking the given room
@@ -76,7 +77,8 @@ equippedWeapon :: Character -> Maybe Item.Item
 equippedWeapon Character { inv = currInv } = if null list
                                              then Nothing
                                              else Just $ head list
-  where list = filter Item.isWeapon . map fst . filter snd $ currInv
+  where
+    list = filter Item.isWeapon . map fst . filter snd $ currInv
 
 
 shieldList :: Character -> Inventory
@@ -93,7 +95,8 @@ equippedShield :: Character -> Maybe Item.Item
 equippedShield Character { inv = currInv } = if null list
                                              then Nothing
                                              else Just $ head list
-  where list = filter Item.isShield . map fst . filter snd $ currInv
+  where
+    list = filter Item.isShield . map fst . filter snd $ currInv
 
 
 keyList :: Character -> Inventory
@@ -108,27 +111,30 @@ equippedKey :: Character -> Maybe Item.Item
 equippedKey Character { inv = currInv } = if null list
                                           then Nothing
                                           else Just $ head list
-  where list = filter Item.isKey . map fst . filter snd $ currInv
+  where
+    list = filter Item.isKey . map fst . filter snd $ currInv
 
 
 -- changes an item in the character's inventory
 modifyInv :: Bool -> Item.Item -> Item.Item -> Character -> Character
 modifyInv isEquipped oldItem newItem char@Character { inv = oldInv }
-   | null list = error $ "Old Item " ++ show oldItem ++ " not in " ++ name char ++ "'s inventory"
-   | otherwise = pickupItem isEquipped newItem . dropItem oldItem $ char
-  where list = filter (\(x, _) -> x == oldItem) oldInv
+    | null list = error $ "Old Item " ++ show oldItem ++ " not in " ++ name char ++ "'s inventory"
+    | otherwise = pickupItem isEquipped newItem . dropItem oldItem $ char
+  where
+    list = filter (\(x, _) -> x == oldItem) oldInv
 
 
 pickupItem :: Bool -> Item.Item -> Character -> Character
 pickupItem isEquipped item@(_, isInventory, _) char@Character { inv = oldInv }
-   | not isInventory = error "Item can't be picked up"
-   | otherwise = char { inv = (item, isEquipped) : oldInv }
+    | not isInventory = error "Item can't be picked up"
+    | otherwise = char { inv = (item, isEquipped) : oldInv }
 
 
 dropItem :: Item.Item -> Character -> Character
 dropItem item char@Character { inv = oldInv }
-   | item `notElem` oldItems = error "Item not in Inventory"
-   | otherwise = char { inv = filterFirst (\(x, y) -> x /= item || not y) oldInv }
-  where (oldItems, _) = unzip oldInv
+    | item `notElem` oldItems = error "Item not in Inventory"
+    | otherwise = char { inv = filterFirst (\(x, y) -> x /= item || not y) oldInv }
+  where
+    (oldItems, _) = unzip oldInv
 
 

@@ -11,29 +11,30 @@ data Attributes = Nil | Weapon { power :: Float
                       | Ladder deriving (Show, Eq)
 
 instance Random Attributes where
-   randomR (lowAttr, highAttr) gen
-      | low < 1 || high > 3 = error "Out of range!"
-      | otherwise = let (tempRand, gen') = randomR (low :: Int, high) gen
-                        (randPower, tempGenWeapon) = randomR (3 :: Float, 50) gen'
-                        (randRange, genWeapon) = randomR (1, max Mov.highInnerBoundNS Mov.highInnerBoundWE) tempGenWeapon
-                        (randDur, genShield) = randomR (15 :: Float, 100) gen'
-                        (randNS, tempGenKey) = randomR (Mov.lowBoundNS, Mov.highBoundNS) gen'
-                        (randWE, genKey) = randomR (Mov.lowBoundWE, Mov.highBoundWE) tempGenKey
-                    in case tempRand of
-                       1 -> (Weapon randPower randRange, genWeapon)
-                       2 -> (Shield randDur, genShield)
-                       3 -> (Key (randNS, randWE), genKey)
-     where low = case lowAttr of
-              (Weapon _ _) -> 1
-              (Shield _) -> 2
-              (Key _) -> 3
-           high = case highAttr of
-              (Weapon _ _) -> 1
-              (Shield _) -> 2
-              (Key _) -> 3
+    randomR (lowAttr, highAttr) gen
+        | low < 1 || high > 3 = error "Out of range!"
+        | otherwise = let (tempRand, gen') = randomR (low :: Int, high) gen
+                          (randPower, tempGenWeapon) = randomR (3 :: Float, 50) gen'
+                          (randRange, genWeapon) = randomR (1, max Mov.highInnerBoundNS Mov.highInnerBoundWE) tempGenWeapon
+                          (randDur, genShield) = randomR (15 :: Float, 100) gen'
+                          (randNS, tempGenKey) = randomR (Mov.lowBoundNS, Mov.highBoundNS) gen'
+                          (randWE, genKey) = randomR (Mov.lowBoundWE, Mov.highBoundWE) tempGenKey
+                      in case tempRand of
+                          1 -> (Weapon randPower randRange, genWeapon)
+                          2 -> (Shield randDur, genShield)
+                          3 -> (Key (randNS, randWE), genKey)
+      where
+        low = case lowAttr of
+            (Weapon _ _) -> 1
+            (Shield _) -> 2
+            (Key _) -> 3
+        high = case highAttr of
+            (Weapon _ _) -> 1
+            (Shield _) -> 2
+            (Key _) -> 3
 
 
-   random = randomR (Weapon 0 0, Key (0,0))
+    random = randomR (Weapon 0 0, Key (0,0))
 
 
 
@@ -48,7 +49,7 @@ name (str, _, _) = str
 
 randomItem :: RandomGen g => String -> g -> Item
 randomItem itemName gen = let (randAttr, _) = random gen
-                      in (itemName, True, randAttr)
+                          in (itemName, True, randAttr)
 
 
 -- the damage a character produces if he doesn't have a weapon equipped
@@ -70,8 +71,8 @@ reduceDur x = changeDur (-x)
 -- checks if the shield's durability is 0 or less, errors if the item isn't a shield
 isDestroyed :: Item -> Bool
 isDestroyed (_, _, Shield dur)
-   | dur <= 0 = True
-   | otherwise = False
+    | dur <= 0 = True
+    | otherwise = False
 isDestroyed item = error $ "Not a shield: " ++ show item
 
 
