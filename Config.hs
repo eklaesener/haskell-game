@@ -1,8 +1,6 @@
 module Config where
 
 import Prelude hiding (map)
-import Control.Monad (join)
-import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Except
 
 import System.Directory (doesFileExist)
@@ -21,15 +19,55 @@ data Config = Config { map :: !(Int, Int)
 
 
 
+pressEnterStr :: String
+pressEnterStr = ".\nPress Enter to continue..."
 
-fullDefaults :: IO Config
-fullDefaults = return $ Config (4,4) (8,8) 100.0 (2,20) (5, 25) 2 500 100
+notFoundStr :: String -> String
+notFoundStr opt = "Warning!\nThe \"" ++ opt ++ "\" option is unavailable, defaulting to "
+
+
+
+defaultMap :: (Int, Int)
+defaultMap = (4, 4)
+
+defaultRoom :: (Int, Int)
+defaultRoom = (8, 8)
+
+defaultStartHP :: Float
+defaultStartHP = 100.0
+
+defaultEnemyRange :: (Int, Int)
+defaultEnemyRange = (2, 20)
+
+defaultItemRange :: (Int, Int)
+defaultItemRange = (5, 25)
+
+defaultLockedRooms :: Int
+defaultLockedRooms = 20
+
+defaultTimeEnemies :: Int
+defaultTimeEnemies = 500
+
+defaultTimeScreen :: Int
+defaultTimeScreen = 100
+
+
+fullDefaults :: Config
+fullDefaults = Config
+    defaultMap
+    defaultRoom
+    defaultStartHP
+    defaultEnemyRange
+    defaultItemRange
+    defaultLockedRooms
+    defaultTimeEnemies
+    defaultTimeScreen
 
 initFullDefaults :: IO Config
 initFullDefaults = do
-   putStrLn "Warning!\nThe config file \"settings.cfg\" could not be found or read. Using default values.\nPress Enter to continue..."
+   putStrLn $ "Warning!\nThe config file \"settings.cfg\" could not be found or read. Using default values" ++ pressEnterStr
    _ <- getLine
-   fullDefaults
+   return fullDefaults
 
 
 confMapRows :: ExceptT CPError IO Int
@@ -49,11 +87,14 @@ getMap = do
    rv2 <- runExceptT confMapColumns
    case rv1 of
       Left _ -> case rv2 of
-         Left _ -> return (4, 4)
-         Right cols -> return (4, cols)
+         Left _ -> return def
+         Right cols -> return (x, cols)
       Right rows -> case rv2 of
-         Left _ -> return (rows, 4)
+         Left _ -> return (rows, y)
          Right cols -> return (rows, cols)
+  where
+   def@(x,y) = defaultMap
+   
 
 
 initGetMap :: IO (Int, Int)
@@ -63,19 +104,21 @@ initGetMap = do
    case rv1 of
       Left _ -> case rv2 of
          Left _ -> do
-            putStrLn "Warning!\nThe map size options are unavailable, defaulting to (4,4).\nPress Enter to continue..."
+            putStrLn $ "Warning!\nThe map size options are unavailable, defaulting to " ++ show def ++ pressEnterStr
             _ <- getLine
-            return (4, 4)
+            return def
          Right cols -> do
-            putStrLn "Warning!\nThe \"maprows\" option is unavailable, defaulting to 4.\nPress Enter to continue..."
+            putStrLn $ notFoundStr "maprows" ++ show x ++ pressEnterStr
             _ <- getLine
-            return (4, cols)
+            return (x, cols)
       Right rows -> case rv2 of
          Left _ -> do
-            putStrLn "Warning!\nThe \"mapcolumns\" option is unavailable, defaulting to 4.\nPress Enter to continue..."
+            putStrLn $ notFoundStr "mapcolumns" ++ show y ++ pressEnterStr
             _ <- getLine
-            return (rows, 4)
+            return (rows, y)
          Right cols -> return (rows, cols)
+  where
+   def@(x, y) = defaultMap
 
 
 
@@ -96,11 +139,13 @@ getRoom = do
    rv2 <- runExceptT confRoomColumns
    case rv1 of
       Left _ -> case rv2 of
-         Left _ -> return (8, 8)
-         Right cols -> return (8, cols)
+         Left _ -> return def
+         Right cols -> return (x, cols)
       Right rows -> case rv2 of
-         Left _ -> return (rows, 8)
+         Left _ -> return (rows, y)
          Right cols -> return (rows, cols)
+  where
+   def@(x, y) = defaultRoom
 
 
 initGetRoom :: IO (Int, Int)
@@ -110,19 +155,21 @@ initGetRoom = do
    case rv1 of
       Left _ -> case rv2 of
          Left _ -> do
-            putStrLn "Warning!\nThe room size options are unavailable, defaulting to (8,8).\nPress Enter to continue..."
+            putStrLn $ "Warning!\nThe room size options are unavailable, defaulting to " ++ show def ++ pressEnterStr
             _ <- getLine
-            return (8, 8)
+            return def
          Right cols -> do
-            putStrLn "Warning!\nThe \"roomrows\" option is unavailable, defaulting to 8.\nPress Enter to continue..."
+            putStrLn $ notFoundStr "roomrows" ++ show x ++ pressEnterStr
             _ <- getLine
-            return (8, cols)
+            return (x, cols)
       Right rows -> case rv2 of
          Left _ -> do
-            putStrLn "Warning!\nThe \"roomcolumns\" option is unavailable, defaulting to 8.\nPress Enter to continue..."
+            putStrLn $ notFoundStr "roomcolumns" ++ show y ++ pressEnterStr
             _ <- getLine
-            return (rows, 8)
+            return (rows, y)
          Right cols -> return (rows, cols)
+  where
+   def@(x, y) = defaultRoom
 
 
 
@@ -135,7 +182,7 @@ getStartHP :: IO Float
 getStartHP = do
    rv <- runExceptT confStartHP
    case rv of
-      Left _ -> return 100.0
+      Left _ -> return defaultStartHP
       Right hp -> return hp
 
 initGetStartHP :: IO Float
@@ -143,10 +190,12 @@ initGetStartHP = do
    rv <- runExceptT confStartHP
    case rv of
       Left _ -> do
-         putStrLn "Warning!\nThe \"startinghealthpoints\" option is unavailable, defaulting to 100.0.\nPress Enter to continue..."
+         putStrLn $ notFoundStr "startinghealthpoints" ++ show def ++ pressEnterStr
          _ <- getLine
-         return 100.0
+         return def
       Right hp -> return hp
+  where
+   def = defaultStartHP
 
 
 confMinEnemy :: ExceptT CPError IO Int
@@ -166,11 +215,13 @@ getEnemies = do
    rv2 <- runExceptT confMaxEnemy
    case rv1 of
       Left _ -> case rv2 of
-         Left _ -> return (2, 20)
-         Right n -> return (2, n)
+         Left _ -> return def
+         Right n -> return (a, n)
       Right m -> case rv2 of
-         Left _ -> return (m, 20)
+         Left _ -> return (m, b)
          Right n -> return (m, n)
+  where
+   def@(a, b) = defaultEnemyRange
 
 initGetEnemies :: IO (Int, Int)
 initGetEnemies = do
@@ -179,19 +230,21 @@ initGetEnemies = do
    case rv1 of
       Left _ -> case rv2 of
          Left _ -> do
-            putStrLn "Warning!\nThe \"minenemies\" and \"maxenemies\" options are unavailable, defaulting to (2, 20).\nPress Enter to continue..."
+            putStrLn $ "Warning!\nThe \"minenemies\" and \"maxenemies\" options are unavailable, defaulting to " ++ show def ++ pressEnterStr
             _ <- getLine
-            return (2, 20)
+            return def
          Right n -> do
-            putStrLn "Warning!\nThe \"minenemies\" option is unavailable, defaulting to 2.\nPress Enter to continue..."
+            putStrLn $ notFoundStr "minenemies" ++ show a ++ pressEnterStr
             _ <- getLine
-            return (2, n)
+            return (a, n)
       Right m -> case rv2 of
          Left _ -> do
-            putStrLn "Warning!\nThe \"maxenemies\" option is unavailable, defaulting to 20.\nPress Enter to continue..."
+            putStrLn $ notFoundStr "maxenemies" ++ show b ++ pressEnterStr
             _ <- getLine
-            return (m, 20)
+            return (m, b)
          Right n -> return (m, n)
+  where
+   def@(a, b) = defaultEnemyRange
 
 
 confMinItem :: ExceptT CPError IO Int
@@ -211,11 +264,13 @@ getItems = do
    rv2 <- runExceptT confMaxItem
    case rv1 of
       Left _ -> case rv2 of
-         Left _ -> return (5, 25)
-         Right n -> return (5, n)
+         Left _ -> return def
+         Right n -> return (a, n)
       Right m -> case rv2 of
-         Left _ -> return (m, 25)
+         Left _ -> return (m, b)
          Right n -> return (m, n)
+  where
+   def@(a, b) = defaultItemRange
 
 initGetItems :: IO (Int, Int)
 initGetItems = do
@@ -224,19 +279,21 @@ initGetItems = do
    case rv1 of
       Left _ -> case rv2 of
          Left _ -> do
-            putStrLn "Warning!\nThe \"minitems\" and \"maxitems\" options are unavailable, defaulting to (5, 25).\nPress Enter to continue..."
+            putStrLn $ "Warning!\nThe \"minitems\" and \"maxitems\" options are unavailable, defaulting to " ++ show def ++ pressEnterStr
             _ <- getLine
-            return (5, 25)
+            return def
          Right n -> do
-            putStrLn "Warning!\nThe \"minitems\" option is unavailable, defaulting to 5.\nPress Enter to continue..."
+            putStrLn $ notFoundStr "minitems" ++ show a ++ pressEnterStr
             _ <- getLine
-            return (5, n)
+            return (a, n)
       Right m -> case rv2 of
          Left _ -> do
-            putStrLn "Warning!\nThe \"maxitems\" option is unavailable, defaulting to 25.\nPress Enter to continue..."
+            putStrLn $ notFoundStr "maxitems" ++ show b ++ pressEnterStr
             _ <- getLine
-            return (m, 25)
+            return (m, b)
          Right n -> return (m, n)
+  where
+   def@(a, b) = defaultItemRange
 
 
 confLocked :: ExceptT CPError IO Int
@@ -249,7 +306,7 @@ getLockedRooms :: IO Int
 getLockedRooms = do
    rv <- runExceptT confLocked
    case rv of
-      Left _ -> return 2
+      Left _ -> return defaultLockedRooms
       Right n -> return n
 
 initGetLockedRooms :: IO Int
@@ -257,34 +314,38 @@ initGetLockedRooms = do
    rv <- runExceptT confLocked
    case rv of
       Left _ -> do
-         putStrLn "Warning!\nThe \"lockedrooms\" option is unavailable, defaulting to 2.\nPress Enter to continue..."
+         putStrLn $ notFoundStr "lockedrooms" ++ show def ++ pressEnterStr
          _ <- getLine
-         return 2
+         return def
       Right n -> return n
+  where
+   def = defaultLockedRooms
 
 
-confTimeEnemy :: ExceptT CPError IO Int
-confTimeEnemy = do
+confTimeEnemies :: ExceptT CPError IO Int
+confTimeEnemies = do
    cp <- join $ liftIO $ readfile emptyCP "settings.cfg"
    get cp "DEFAULT" "timeenemies"
 
 
-getTimeEnemy :: IO Int
-getTimeEnemy = do
-   rv <- runExceptT confTimeEnemy
+getTimeEnemies :: IO Int
+getTimeEnemies = do
+   rv <- runExceptT confTimeEnemies
    case rv of
-      Left _ -> return 500
+      Left _ -> return defaultTimeEnemies
       Right n -> return n
 
-initGetTimeEnemy :: IO Int
-initGetTimeEnemy = do
-   rv <- runExceptT confTimeEnemy
+initGetTimeEnemies :: IO Int
+initGetTimeEnemies = do
+   rv <- runExceptT confTimeEnemies
    case rv of
       Left _ -> do
-         putStrLn "Warning!\nThe \"timeenemies\" option is unavailable, defaulting to 500.\nPress Enter to continue..."
+         putStrLn $ notFoundStr "timeenemies" ++ show def ++ pressEnterStr
          _ <- getLine
-         return 500
+         return def
       Right n -> return n
+  where
+   def = defaultTimeEnemies
 
 
 confTimeScreen :: ExceptT CPError IO Int
@@ -297,7 +358,7 @@ getTimeScreen :: IO Int
 getTimeScreen = do
    rv <- runExceptT confTimeScreen
    case rv of
-      Left _ -> return 100
+      Left _ -> return defaultTimeScreen
       Right n -> return n
 
 initGetTimeScreen :: IO Int
@@ -305,10 +366,12 @@ initGetTimeScreen = do
    rv <- runExceptT confTimeScreen
    case rv of
       Left _ -> do
-         putStrLn "Warning!\nThe \"timescreen\" option is unavailable, defaulting to 100.\nPress Enter to continue..."
+         putStrLn $ notFoundStr "timescreen" ++ show def ++ pressEnterStr
          _ <- getLine
-         return 100
+         return def
       Right n -> return n
+  where
+   def = defaultTimeScreen
 
 -- reads the config values from settings.cfg, loads defaults if the file or some options aren't readable
 config :: IO Config
@@ -323,7 +386,7 @@ config = do
          vEnemy <- getEnemies
          vItem <- getItems
          vLocked <- getLockedRooms
-         vTimeEnemy <- getTimeEnemy
+         vTimeEnemies <- getTimeEnemies
          vTimeScreen <- getTimeScreen
          return Config { map = vMap
                        , room = vRoom
@@ -331,10 +394,10 @@ config = do
                        , enemyRange = vEnemy
                        , itemRange = vItem
                        , lockedRooms = vLocked
-                       , timeEnemies = vTimeEnemy
+                       , timeEnemies = vTimeEnemies
                        , timeScreen = vTimeScreen
                        }
-      else fullDefaults
+      else return fullDefaults
 
 
 
@@ -350,7 +413,7 @@ initConfig = do
          vEnemy <- initGetEnemies
          vItem <- initGetItems
          vLocked <- initGetLockedRooms
-         vTimeEnemy <- initGetTimeEnemy
+         vTimeEnemies <- initGetTimeEnemies
          vTimeScreen <- initGetTimeScreen
          return Config { map = vMap
                        , room = vRoom
@@ -358,7 +421,7 @@ initConfig = do
                        , enemyRange = vEnemy
                        , itemRange = vItem
                        , lockedRooms = vLocked
-                       , timeEnemies = vTimeEnemy
+                       , timeEnemies = vTimeEnemies
                        , timeScreen = vTimeScreen
                        }
       else initFullDefaults
