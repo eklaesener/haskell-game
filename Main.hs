@@ -415,7 +415,8 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(o
                     return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
             Right newPlayerPos@(newPlayerRoom, _, _) -> do
                 let enemyList = HM.lookupDefault [] newPlayerRoom enemyMap
-                case () of ()
+                case () of
+                  ()
                     | roomMap ! newPlayerRoom && not (Cha.hasKey newPlayerRoom player) -> do -- if the new room is locked and the player doesn't have the right key, don't allow the move
                         newNaStr <- Msg.getRoomLockedMsg
                         return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
@@ -443,7 +444,8 @@ playerAction str oldGame@(narratorstr, roomMap, winPos, (player, oldPlayerPos@(o
                                     return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
                             Right newLadderPos@(newLadderRoom, newLadderInner, _) -> do
                                 let tempEnemyList = HM.lookupDefault [] newLadderRoom enemyMap
-                                case () of ()
+                                case () of
+                                  ()
                                     | roomMap ! newLadderRoom && not (Cha.hasKey newLadderRoom player) -> do
                                         newNaStr <- Msg.getRoomLockedMsg
                                         return $ Right (newNaStr, roomMap, winPos, (player, oldPlayerPos), enemyMap, (ladder, oldLadderPos), itemMap)
@@ -683,7 +685,8 @@ enemyAction str oldEnemyWithPos@(enemy, oldEnemyPos@(oldEnemyRoom, _, _)) oldGam
                 | resStr == "Door blocked" -> enemyAction "turn randomly" oldEnemyWithPos oldGame
             Right newEnemyPos@(newEnemyRoom, _, _) -> do
                 let enemyList = HM.lookupDefault [] newEnemyRoom enemyMap
-                case () of ()
+                case () of
+                  ()
                     | roomMap ! newEnemyRoom && not (roomMap ! oldEnemyRoom) -> enemyAction "turn randomly" oldEnemyWithPos oldGame
                     -- makes sure there isn't anything on the new position
                     | not (any (newEnemyPos `comparePos`) (ladderPos : playerPos : map snd enemyList)) -> return $
